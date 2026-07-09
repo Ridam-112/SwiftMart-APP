@@ -156,7 +156,7 @@ router.post(
         )
       );
 
-      const failed = results.filter((r) => !r.ok).length;
+      const failed = results.filter((r: { ok: boolean }) => !r.ok).length;
       logger.info({ sent: results.length, failed }, "Test push sent");
 
       res.json({ success: true, sent: results.length, failed, details: results });

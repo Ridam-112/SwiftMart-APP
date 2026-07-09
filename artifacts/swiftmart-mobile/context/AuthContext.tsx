@@ -1,12 +1,12 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { User } from '@/lib/types';
-import { BASE_URL } from '@/lib/api';
+import { BASE_URL, API_SERVER_BASE } from '@/lib/api';
 import { registerForPushNotifications, unregisterPushToken } from '@/lib/pushNotifications';
 
 export interface RegisterPayload {
   name: string;
-  email: string;
+  email?: string;
   password: string;
   phone: string;
   role: 'customer' | 'vendor' | 'rider';
@@ -17,13 +17,33 @@ interface AuthContextType {
   token: string | null;
   isLoading: boolean;
   login: (phone: string, password: string) => Promise<void>;
-  loginWithGoogle: (credential: string) => Promise<void>;
+  loginWithGoogle: (idToken: string) => Promise<void>;
+  loginWithTruecaller: (accessToken: string, requestNonce: string, profile: { phone: string; name: string; email?: string }) => Promise<void>;
   register: (data: RegisterPayload) => Promise<void>;
   logout: () => Promise<void>;
   updateUser: (patch: Partial<User>) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
+
+async function persistSession(token: string, user: User) {
+  await AsyncStorage.multiSet([['token', token], ['user', JSON.stringify(user)]]);
+}
+
+function extractSession(data: Record<string, unknown>): { token: string; user: User } {
+  const nested = (data.data ?? {}) as Record<string, unknown>;
+  const token = (data.token ?? data.accessToken ?? nested.token ?? nested.accessToken) as string;
+  const user = (data.user ?? nested.user) as User;
+  if (!token || !user) throw new Error('Unexpected response from server');
+  return { token, user };
+}
+
+// Resolve the right proxy URL for the current platform.
+// On web the app talks through our api-server proxy; on native it hits the
+// production API directly (no CORS constraints).
+function authUrl(path: string) {
+  return `${BASE_URL}${path}`;
+}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -33,9 +53,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     (async () => {
       try {
-        const pairs = await AsyncStorage.multiGet(['token', 'user']);
-        const t = pairs[0][1];
-        const u = pairs[1][1];
+        const [[, t], [, u]] = await AsyncStorage.multiGet(['token', 'user']);
         if (t && u) {
           setToken(t);
           setUser(JSON.parse(u));
@@ -46,70 +64,77 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })();
   }, []);
 
+  async function applySession(data: Record<string, unknown>) {
+    const { token: t, user: u } = extractSession(data);
+    await persistSession(t, u);
+    setToken(t);
+    setUser(u);
+    registerForPushNotifications(t).catch(() => {});
+  }
+
+  // ─── Mobile number + password ────────────────────────────────────────────
   async function login(phone: string, password: string) {
-    const res = await fetch(`${BASE_URL}/auth/login`, {
+    const res = await fetch(authUrl('/auth/login'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ phone, password }),
     });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({})) as Record<string, string>;
-      throw new Error(err.message || 'Invalid email or password');
-    }
-    const data = await res.json() as Record<string, unknown>;
-    const t = (data.token || data.accessToken || (data.data as Record<string,unknown>)?.token) as string;
-    const u = (data.user || (data.data as Record<string,unknown>)?.user) as User;
-    if (!t || !u) throw new Error('Unexpected response from server');
-    await AsyncStorage.multiSet([['token', t], ['user', JSON.stringify(u)]]);
-    setToken(t);
-    setUser(u);
-    registerForPushNotifications(t).catch(() => {});
+    const data = await res.json().catch(() => ({})) as Record<string, unknown>;
+    if (!res.ok) throw new Error((data.message as string) || 'Invalid phone number or password');
+    await applySession(data);
   }
 
-  async function loginWithGoogle(credential: string) {
-    const res = await fetch(`${BASE_URL}/auth/google`, {
+  // ─── Google Sign-In ──────────────────────────────────────────────────────
+  // idToken comes from expo-auth-session (OIDC id_token).
+  // The production API's /auth/google verifies it with Google.
+  async function loginWithGoogle(idToken: string) {
+    const res = await fetch(authUrl('/auth/google'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ credential }),
+      body: JSON.stringify({ credential: idToken }),
     });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({})) as Record<string, string>;
-      throw new Error(err.message || 'Google sign-in failed');
-    }
-    const data = await res.json() as Record<string, unknown>;
-    const t = (data.token || data.accessToken || (data.data as Record<string,unknown>)?.token) as string;
-    const u = (data.user || (data.data as Record<string,unknown>)?.user) as User;
-    if (!t || !u) throw new Error('Unexpected response from server');
-    await AsyncStorage.multiSet([['token', t], ['user', JSON.stringify(u)]]);
-    setToken(t);
-    setUser(u);
-    registerForPushNotifications(t).catch(() => {});
+    const data = await res.json().catch(() => ({})) as Record<string, unknown>;
+    if (!res.ok) throw new Error((data.message as string) || 'Google sign-in failed');
+    await applySession(data);
   }
 
+  // ─── Truecaller ──────────────────────────────────────────────────────────
+  // Called after the Truecaller SDK returns a verified profile.
+  // Always routes through our api-server (API_SERVER_BASE) which verifies the
+  // Truecaller access token and either logs in or creates the account.
+  async function loginWithTruecaller(
+    accessToken: string,
+    requestNonce: string,
+    profile: { phone: string; name: string; email?: string },
+  ) {
+    if (!API_SERVER_BASE) throw new Error('API server URL is not configured (EXPO_PUBLIC_DOMAIN or EXPO_PUBLIC_API_SERVER_URL missing).');
+    const res = await fetch(`${API_SERVER_BASE}/auth/truecaller`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accessToken, requestNonce, ...profile }),
+    });
+    const data = await res.json().catch(() => ({})) as Record<string, unknown>;
+    if (!res.ok) throw new Error((data.message as string) || 'Truecaller sign-in failed');
+    await applySession(data);
+  }
+
+  // ─── Register ────────────────────────────────────────────────────────────
   async function register(payload: RegisterPayload) {
-    const res = await fetch(`${BASE_URL}/auth/register`, {
+    const res = await fetch(authUrl('/auth/register'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({})) as Record<string, string>;
-      throw new Error(err.message || 'Registration failed');
-    }
-    const data = await res.json() as Record<string, unknown>;
-    const t = (data.token || data.accessToken || (data.data as Record<string,unknown>)?.token) as string;
-    const u = (data.user || (data.data as Record<string,unknown>)?.user) as User;
-    if (!t || !u) throw new Error('Unexpected response from server');
-    await AsyncStorage.multiSet([['token', t], ['user', JSON.stringify(u)]]);
-    setToken(t);
-    setUser(u);
-    registerForPushNotifications(t).catch(() => {});
+    const data = await res.json().catch(() => ({})) as Record<string, unknown>;
+    if (!res.ok) throw new Error((data.message as string) || 'Registration failed');
+    await applySession(data);
   }
 
+  // ─── Logout ──────────────────────────────────────────────────────────────
   async function logout() {
     if (token) {
       const pushToken = await AsyncStorage.getItem('pushToken');
-      await unregisterPushToken(token, pushToken);
+      await unregisterPushToken(token, pushToken).catch(() => {});
     }
     await AsyncStorage.multiRemove(['token', 'user', 'pushToken']);
     setToken(null);
@@ -126,7 +151,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, token, isLoading, login, loginWithGoogle, register, logout, updateUser }}>
+    <AuthContext.Provider value={{ user, token, isLoading, login, loginWithGoogle, loginWithTruecaller, register, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

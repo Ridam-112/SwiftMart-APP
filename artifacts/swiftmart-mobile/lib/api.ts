@@ -20,6 +20,14 @@ export const BASE_URL =
 // with whatever the website's admin changes in the database.
 // These must always hit our own api-server (never swiftmart.space directly —
 // it has no /db or /upload routes), on every platform.
+// Our own api-server — prefer an explicit override, fall back to Replit domain.
+// On native production builds, set EXPO_PUBLIC_API_SERVER_URL to the deployed
+// api-server URL (e.g. https://api.swiftmart.in/api).
+export const API_SERVER_BASE =
+  process.env.EXPO_PUBLIC_API_SERVER_URL ??
+  (DOMAIN ? `https://${DOMAIN}/api` : null);
+// If neither env var is set we cannot reach our api-server; features that
+// require it (Truecaller auth, DB routes) will fail with a clear message.
 export const DB_BASE_URL = `https://${DOMAIN}/api/db`;
 export const UPLOAD_URL = `https://${DOMAIN}/api/upload`;
 export const NOTIFICATIONS_BASE_URL = `https://${DOMAIN}/api/notifications`;

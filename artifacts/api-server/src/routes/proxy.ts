@@ -67,9 +67,9 @@ router.get("/proxy/orders-enriched", async (req, res) => {
     };
 
     const orders: RawOrder[] = Array.isArray(ordersData)
-      ? ordersData
+      ? (ordersData as RawOrder[])
       : Array.isArray((ordersData as Record<string, unknown>).orders)
-        ? (ordersData as Record<string, unknown[]>).orders
+        ? ((ordersData as Record<string, unknown>).orders as RawOrder[])
         : [];
 
     // 2. Collect unique string IDs that need enrichment

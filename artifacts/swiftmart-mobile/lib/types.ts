@@ -19,10 +19,13 @@ export interface Address {
 export interface Shop {
   _id: string;
   name: string;
+  /** Production API returns shopName instead of name in some responses */
+  shopName?: string;
   description?: string;
   category?: string;
   image?: string;
   coverImage?: string;
+  banner?: string;
   rating?: number;
   totalRatings?: number;
   deliveryTime?: string;

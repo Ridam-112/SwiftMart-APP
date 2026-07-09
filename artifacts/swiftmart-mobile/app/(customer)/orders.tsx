@@ -17,7 +17,12 @@ export default function OrdersScreen() {
   const { data: orders = [], isLoading, refetch, isRefetching } = useQuery<Order[]>({
     queryKey: ['orders', 'customer'],
     queryFn: async () => {
-      const res = await api.get<unknown>('/orders');
+      // On web the Expo app talks through our proxy server — use the enriched
+      // endpoint so shop + product IDs get hydrated into full objects.
+      // On native the app calls the production API directly which populates
+      // the fields server-side, so the plain /orders route is fine there.
+      const endpoint = Platform.OS === 'web' ? '/orders-enriched' : '/orders';
+      const res = await api.get<unknown>(endpoint);
       return extractList<Order>(res, 'orders').sort(
         (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
       );

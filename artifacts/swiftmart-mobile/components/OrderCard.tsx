@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useColors } from '@/hooks/useColors';
-import { Order, OrderStatus } from '@/lib/types';
+import { Order, OrderStatus, OrderItem, Product } from '@/lib/types';
 
 interface Props { order: Order; onPress: () => void; }
 
@@ -16,14 +16,49 @@ const STATUS_CONFIG: Record<OrderStatus, { label: string; color: string; icon: s
   cancelled:        { label: 'Cancelled',         color: '#EF4444', icon: 'close-circle-outline' },
 };
 
+function getShopName(order: Order): string {
+  if (typeof order.shop === 'object' && order.shop !== null) {
+    return order.shop.name ?? order.shop.shopName ?? 'Shop';
+  }
+  // Try to pull shop name from the first populated product
+  if (order.items?.length) {
+    const firstProduct = order.items[0]?.product;
+    if (typeof firstProduct === 'object' && firstProduct !== null) {
+      const p = firstProduct as Product;
+      if (p.shopName) return p.shopName;
+    }
+  }
+  return 'Shop';
+}
+
+function getItemLabel(item: OrderItem): string {
+  if (typeof item.product === 'object' && item.product !== null) {
+    return (item.product as Product).name ?? 'Item';
+  }
+  return 'Item';
+}
+
+function getTotal(order: Order): string {
+  if (order.totalAmount != null && !isNaN(order.totalAmount)) {
+    return `₹${order.totalAmount.toFixed(0)}`;
+  }
+  // Fallback: sum items
+  const sum = order.items?.reduce((acc, i) => acc + (i.price ?? 0) * (i.quantity ?? 1), 0) ?? 0;
+  return sum > 0 ? `₹${sum.toFixed(0)}` : '₹—';
+}
+
 export function OrderCard({ order, onPress }: Props) {
   const colors = useColors();
   const cfg = STATUS_CONFIG[order.status] ?? STATUS_CONFIG.pending;
-  const shopName = typeof order.shop === 'object' ? order.shop.name : 'Shop';
-  const itemCount = order.items?.length ?? 0;
+  const shopName = getShopName(order);
   const date = new Date(order.createdAt).toLocaleDateString('en-IN', {
     day: 'numeric', month: 'short', year: 'numeric',
   });
+
+  // Show up to 3 items, then "+ N more"
+  const items = order.items ?? [];
+  const shownItems = items.slice(0, 3);
+  const extraCount = items.length - shownItems.length;
 
   return (
     <TouchableOpacity
@@ -31,6 +66,7 @@ export function OrderCard({ order, onPress }: Props) {
       onPress={onPress}
       activeOpacity={0.85}
     >
+      {/* Shop name + status badge */}
       <View style={styles.header}>
         <View style={styles.shopRow}>
           <Ionicons name="storefront-outline" size={16} color={colors.primary} />
@@ -43,13 +79,38 @@ export function OrderCard({ order, onPress }: Props) {
           <Text style={[styles.badgeText, { color: cfg.color }]}>{cfg.label}</Text>
         </View>
       </View>
-      <View style={[styles.divider, { backgroundColor: colors.border }]} />
-      <View style={styles.footer}>
-        <Text style={[styles.meta, { color: colors.mutedForeground }]}>
-          {itemCount} item{itemCount !== 1 ? 's' : ''} · {date}
-        </Text>
+
+      {/* Items list */}
+      {shownItems.length > 0 && (
+        <View style={[styles.itemsBlock, { borderTopColor: colors.border }]}>
+          {shownItems.map((item, idx) => (
+            <View key={idx} style={styles.itemRow}>
+              <Text style={[styles.itemQty, { color: colors.primary }]}>
+                {item.quantity ?? 1}×
+              </Text>
+              <Text style={[styles.itemName, { color: colors.foreground }]} numberOfLines={1}>
+                {getItemLabel(item)}
+              </Text>
+              {item.price != null && (
+                <Text style={[styles.itemPrice, { color: colors.mutedForeground }]}>
+                  ₹{(item.price * (item.quantity ?? 1)).toFixed(0)}
+                </Text>
+              )}
+            </View>
+          ))}
+          {extraCount > 0 && (
+            <Text style={[styles.moreItems, { color: colors.mutedForeground }]}>
+              +{extraCount} more item{extraCount !== 1 ? 's' : ''}
+            </Text>
+          )}
+        </View>
+      )}
+
+      {/* Footer: date + total */}
+      <View style={[styles.footer, { borderTopColor: colors.border }]}>
+        <Text style={[styles.date, { color: colors.mutedForeground }]}>{date}</Text>
         <Text style={[styles.amount, { color: colors.foreground }]}>
-          ₹{order.totalAmount?.toFixed(0)}
+          {getTotal(order)}
         </Text>
       </View>
     </TouchableOpacity>
@@ -68,16 +129,45 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.06,
     shadowRadius: 4,
   },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 14 },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 14,
+  },
   shopRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 },
   shopName: { fontSize: 15, fontWeight: '700', flex: 1 },
   badge: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    paddingHorizontal: 8, paddingVertical: 4, borderRadius: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 20,
   },
   badgeText: { fontSize: 11, fontWeight: '600' },
-  divider: { height: 1, marginHorizontal: 14 },
-  footer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 14 },
-  meta: { fontSize: 13 },
-  amount: { fontSize: 16, fontWeight: '700' },
+  itemsBlock: {
+    borderTopWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    gap: 5,
+  },
+  itemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  itemQty: { fontSize: 13, fontWeight: '700', minWidth: 24 },
+  itemName: { fontSize: 13, flex: 1 },
+  itemPrice: { fontSize: 13, fontWeight: '500' },
+  moreItems: { fontSize: 12, marginTop: 2 },
+  footer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 14,
+    borderTopWidth: 1,
+  },
+  date: { fontSize: 13 },
+  amount: { fontSize: 16, fontWeight: '800' },
 });

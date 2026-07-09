@@ -1,0 +1,62 @@
+{
+  "expo": {
+    "name": "SwiftMart",
+    "slug": "swiftmart-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "swiftmart-mobile",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/images/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#16A34A"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.swiftmart.mobile"
+    },
+    "android": {
+      "package": "com.swiftmart.app",
+      "googleServicesFile": "./google-services.json",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/icon.png",
+        "backgroundColor": "#000000"
+      }
+    },
+    "web": {
+      "favicon": "./assets/images/icon.png"
+    },
+    "plugins": [
+      [
+        "expo-router",
+        {
+          "origin": "https://replit.com/"
+        }
+      ],
+      "expo-font",
+      "expo-web-browser",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#16A34A"
+        }
+      ]
+    ],
+    "notification": {
+      "icon": "./assets/images/icon.png",
+      "color": "#16A34A"
+    },
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "4b2b04e4-3638-4336-8b11-be43641c74be"
+      }
+    }
+  }
+}

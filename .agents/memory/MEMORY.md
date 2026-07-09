@@ -1,0 +1,6 @@
+- [SwiftMart API response shapes](swiftmart-api-shapes.md) — single-resource endpoints wrap in `{shop:…}`/`{product:…}`; field names differ (`shopName` not `name`, `banner` not `coverImage`, `images[]` not `image`); `/shops/:id/products` is invalid, use `/products?shopId=:id`.
+- [SwiftMart Neon/Supabase sync](swiftmart-data-sync.md) — hero banners/categories read live from website's Neon DB via api-server; new uploads go to Supabase storage, existing images stay on Cloudinary.
+- [EAS Build + pnpm monorepo lockfile](eas-pnpm-monorepo-lockfile.md) — "lockfile absent" errors on EAS despite a committed lockfile are fixed by pinning `packageManager` in root package.json, not by editing the lockfile.
+- [Expo Router dynamic segment conflicts](expo-router-dynamic-routes.md) — reusing the same `[id]` param name across unrelated features causes path/param collisions; give each feature its own top-level route.
+- [Cart quantity decrement anti-pattern](cart-quantity-decrement.md) — never re-call `addItem` to "decrement"; use a dedicated `updateQuantity`/`removeItem`, or it silently increments instead.
+- [SwiftMart env vars](swiftmart-env-vars.md) — required secrets and what breaks without each one.

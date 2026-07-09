@@ -1,0 +1,25 @@
+modules = ["nodejs-24"]
+
+[deployment]
+router = "application"
+deploymentTarget = "autoscale"
+
+[deployment.postBuild]
+args = ["pnpm", "store", "prune"]
+env = { "CI" = "true" }
+
+[workflows]
+runButton = "Project"
+
+[agent]
+stack = "PNPM_WORKSPACE"
+expertMode = true
+
+[postMerge]
+path = "scripts/post-merge.sh"
+timeoutMs = 20000
+
+[userenv]
+
+[userenv.shared]
+FIREBASE_SERVICE_ACCOUNT = '{"type":"service_account","project_id":"swiftmart2026-blg","private_key_id":"f799eba836ac40cf16b83f4c7b0ecefb26930789","private_key":"-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDhXxrhpcDfdVim\n6/1TpgsnRzKQq+s+aowmLpATFbQ7qwFn6oZmxqzSkJ9dHXAZwofLzRYF3l1HXaID\npKzEpk5+BsAxn4HVmvIUd7taHRrtomTd0lFG4kmizWav6xjuDaHxPntmBJcr+Gq0\nXkqivp2lHLLur3kxJJWe3idb+5t6cRI5gCq22ArQcyIqbw3NrdMRhqhKiffhrEMR\nzqbxLHqBnAPah5Jsqe1Mij7Nz6luvu9h81j4NrIFVlMcrxyZxocvvzogo82GcoWC\nkZzj6SiFVWqmhJ/SBVcljJSjigzVJVopuCXR7xMR/J/zKVUfpjmmTodeB+e9XhXk\nSwHcdEujAgMBAAECggEAD8FxWf3CL8e+tzS0/3MSloq2Be0u7gHO4yB1jBAEC06C\nM6dEAXgO6aLuBo7MoSW7Y/ZmKBTf7+Gji55TQbrgA+l+6Dk0KiBsn3JbaQpd2+fI\nJhsnpCKlGTpDh+A8sZpxttwyY53F38S8g6LlPt6/8KTCpvMiMDBUPB4LIbVuV4SM\nh4VSYMrZmX/AI9MPQklpu2w9s2ML9VT3BDVU7tET8UY+/pFVGEkSAOm7GQoYcoJB\nJHe5KcXkrvH6ObdBe+5h1D13jpZ52fHRGvY0sKyOCohtGMpy5kvKBqBuvNlfANqs\n1VvT4+tX42tEt0ISUuxP35F/+CPeBdWmd0aOYqeKCQKBgQD4ScTdrc77cJeoTd2T\nshEi9x1X3KPUx3LQEzmr0d23Lg2hjmp9NHvSlzDTZyA9lJ5idG7C/ndLhe58iTiP\nGVHnt5DGn6CBs3Cgvvs5qZ6C6H133uzpatV5dTpn7+j+ohrzfU/BjnHofxFfticb\nA7NSxm++NVFIYazRf60uHQULRwKBgQDoXx4ADU5vSsXfZC8dKynh8+V/m8SJezV2\nbi6N7zxuTWsEz3nMUvjgbo1ToT/6yI/V4O9YmOUNnBtkT3lHiTd9l9iQca7FLfi6\nMyIv9bzyEC4vGADZW5UX3lYViP2S6IC+K+7jHRvEvvVNBdp8btTjyhhv7amrRrOn\nKlG1D4tyxQKBgQDwQqJISXqzgZ6f9MlntLY0eaBhd1bp/h6yDwiNpcXBDsWOAjw1\n8GWpwTg0OeTO8lPZvgW4l3llEbNXu4mJn9zMN6vXKHyvRa7FPkno4KRM1SEksAnd\nTc5JfBEKpvN2A/PEjwxwpqC/dMahMajh0VDj1rYm/30qZ6pOCBjTOK263QKBgBg0\nyGBDApevV1uFCS9lrrA+Avs/E8MqlZAnvCvG7ymiYPKYVlzFi+19NrWuh4atW+Zw\nzx4Ql1PKnkPdz4l3LtOjfMjXPtiFiHKFHxuV4r/olZcMThJWavqYi6kkox2poLeu\nxezcvGbLaaxDXtY1iXHNPKx0OoeADvjr/KT64JDtAoGBAKll8t4moknREtGZ0hyp\nIeVyIEUwIlCnfXvxeDXVb5YlSuGogRnj//fNplpoXOpHpSM4FuZkbWpWkRQ4fRVO\nt39IhoDdBoiKaUF+Tmr/1a54RQEWT/g70M5OWpOMovPKsktSoSe1Eh5XX+lrFNFx\nPUXfiu14Q4rDAjs/oWgblECo\n-----END PRIVATE KEY-----\n","client_email":"firebase-adminsdk-fbsvc@swiftmart2026-blg.iam.gserviceaccount.com","client_id":"111688882751336526996","auth_uri":"https://accounts.google.com/o/oauth2/auth","token_uri":"https://oauth2.googleapis.com/token","auth_provider_x509_cert_url":"https://www.googleapis.com/oauth2/v1/certs","client_x509_cert_url":"https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-fbsvc%40swiftmart2026-blg.iam.gserviceaccount.com","universe_domain":"googleapis.com"}'

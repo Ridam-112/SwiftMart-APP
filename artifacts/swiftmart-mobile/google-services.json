@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "556854517102",
+    "project_id": "swiftmart2026-blg",
+    "storage_bucket": "swiftmart2026-blg.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:556854517102:android:2b63269b0c642550fdb57f",
+        "android_client_info": {
+          "package_name": "com.swiftmart.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "556854517102-ueq0udfe68n3es3i6hquc1hu6lefgtuc.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAY1DQO4_tpQWUpFFsdlqv5b-qM3psFqzw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "556854517102-ueq0udfe68n3es3i6hquc1hu6lefgtuc.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

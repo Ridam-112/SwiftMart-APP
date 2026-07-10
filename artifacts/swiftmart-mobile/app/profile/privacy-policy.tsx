@@ -37,8 +37,8 @@ const SECTIONS = [
     body: 'Our app uses analytics tools to understand how users interact with the app. This data is aggregated and anonymised. We do not use third-party advertising trackers.',
   },
   {
-    title: '9. Children\'s Privacy',
-    body: 'SwiftMart is not intended for users under 13 years of age. We do not knowingly collect personal information from children under 13. If we become aware that we have collected such information, we will delete it promptly.',
+    title: "9. Children's Privacy",
+    body: 'SwiftMart is intended for users aged 18 and above only. We do not knowingly collect personal information from anyone under 18 years of age. If we become aware that a person under 18 has provided us with personal data, we will delete that information immediately and terminate the associated account.',
   },
   {
     title: '10. Changes to This Policy',

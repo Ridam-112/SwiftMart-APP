@@ -107,6 +107,81 @@ router.post('/email-login', async (req, res) => {
   });
 });
 
+// ─── POST /register ────────────────────────────────────────────────────────────
+//
+// Forwards registration to the production API (source of truth for the
+// mobile app's session/token), then upserts the same email/password into our
+// Neon `users` table so a subsequent /email-login (used by the login screen)
+// can find and verify the account. Without this, freshly-registered accounts
+// exist in production but not in Neon, so logging back in via email/password
+// always 401s until the next Neon sync.
+router.post('/register', async (req, res) => {
+  const { name, email, password, phone, role } = req.body as {
+    name?: string; email?: string; password?: string; phone?: string; role?: string;
+  };
+
+  if (!name || !email || !password || !phone) {
+    res.status(400).json({ success: false, message: 'name, email, password and phone are required.' });
+    return;
+  }
+
+  let data: Record<string, unknown> = {};
+  let upstreamOk = false;
+  try {
+    const upstreamRes = await fetch(`${UPSTREAM}/auth/signup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ name, email, password, phone, role: role ?? 'customer' }),
+    });
+    data = (await upstreamRes.json().catch(() => ({}))) as Record<string, unknown>;
+    upstreamOk = upstreamRes.ok && hasToken(data);
+  } catch (err) {
+    logger.error({ err }, 'register: upstream request failed');
+    res.status(502).json({ success: false, message: 'Could not reach the server. Please try again.' });
+    return;
+  }
+
+  if (!upstreamOk) {
+    // Preserve the upstream's own status code where sensible (e.g. 400 for
+    // validation errors, 429 for rate limits) instead of collapsing
+    // everything to 409, so the client can show an accurate message.
+    const upstreamStatus = (data as { statusCode?: number }).statusCode;
+    const status = upstreamStatus && upstreamStatus >= 400 && upstreamStatus < 500 ? upstreamStatus : 409;
+    res.status(status).json({ success: false, message: (data.message as string) || 'Registration failed.' });
+    return;
+  }
+
+  // Mirror into Neon so email-login works immediately. This is not
+  // best-effort: if it fails, the account exists upstream but a subsequent
+  // email/password login would silently 401 until the next Neon sync, which
+  // is exactly the bug this route exists to prevent — so we surface it to
+  // the client via a `neonSynced: false` flag rather than staying silent.
+  let neonSynced = false;
+  if (neonPool) {
+    try {
+      const hash = await bcrypt.hash(password, 10);
+      const nested = (data.user ?? (data.data as Record<string, unknown> | undefined)?.user ?? {}) as Record<string, unknown>;
+      const id = (nested.id ?? nested._id ?? phone) as string;
+      await neonPool.query(
+        `INSERT INTO users (id, name, phone, email, role, auth_provider, password_hash, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, 'email', $6, NOW(), NOW())
+         ON CONFLICT (id) DO UPDATE SET password_hash = EXCLUDED.password_hash, updated_at = NOW()`,
+        [String(id), name, phone, email.trim(), role ?? 'customer', hash],
+      );
+      neonSynced = true;
+    } catch (err) {
+      logger.error({ err, email }, 'register: Neon mirror failed — email-login will 401 until next sync');
+    }
+  }
+
+  logger.info({ email, phone, neonSynced }, 'register: success');
+  // The account and session are valid either way (upstream is the source of
+  // truth) — neonSynced only tells the client whether email/password
+  // re-login will work immediately, so it can nudge the user toward Google
+  // sign-in as a fallback if not.
+  res.json({ success: true, neonSynced, ...data });
+});
+
 // ─── POST /truecaller ─────────────────────────────────────────────────────────
 
 const TRUECALLER_PROFILE_API = 'https://api4.truecaller.com/v1/default';
@@ -171,7 +246,7 @@ router.post('/truecaller', async (req, res) => {
 
   // Try register
   try {
-    const regRes = await fetch(`${UPSTREAM}/auth/register`, {
+    const regRes = await fetch(`${UPSTREAM}/auth/signup`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       body: JSON.stringify({

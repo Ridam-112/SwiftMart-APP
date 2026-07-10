@@ -128,8 +128,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   // ─── Register ────────────────────────────────────────────────────────────
+  // Routes through our api-server (when available) so the new account also
+  // gets mirrored into the Neon DB — otherwise a subsequent email/password
+  // login (which checks Neon) would 401 until the next production→Neon sync.
+  // Falls back to hitting production directly if the api-server URL isn't
+  // configured (e.g. native build with no EXPO_PUBLIC_API_SERVER_URL set).
   async function register(payload: RegisterPayload) {
-    const res = await fetch(authUrl('/auth/register'), {
+    const url = API_SERVER_BASE ? `${API_SERVER_BASE}/auth/register` : authUrl('/auth/signup');
+    const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),

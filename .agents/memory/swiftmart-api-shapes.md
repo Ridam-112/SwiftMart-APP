@@ -1,32 +1,9 @@
 ---
 name: SwiftMart API response shapes
-description: How the production API wraps responses and which field names differ from the app's TypeScript types.
+description: Field-name and endpoint quirks for the SwiftMart production API (swiftmart.space/api).
 ---
 
-## Single-resource endpoints wrap in a named key
-- `GET /shops/:id` → `{ success, shop: { shopName, banner, id, ... } }`
-- `GET /products/:id` → `{ success, product: { images[], shopId, shopName, ... } }`
-- Extract with: `res.shop ?? res` / `res.product ?? res` before normalizing.
-
-## List endpoints embed array under a named key
-- `GET /shops` → `{ success, shops: [...] }` — use `extractList(res, 'shops')`
-- `GET /products` → `{ success, products: [...] }` — use `extractList(res, 'products')`
-- `GET /products?shopId=:id` → `{ success, products: [...] }` — correct way to load shop products
-
-## Field name mismatches (API → app type)
-| API field | App type field | Fixed by |
-|-----------|---------------|---------|
-| `shopName` | `name` | `normalizeShop()` in `lib/api.ts` |
-| `banner` | `coverImage` | `normalizeShop()` |
-| `id` | `_id` | `normalizeShop()` (both present) |
-| `images[]` | `image` (singular) | `ProductCard` reads `images?.[0] \|\| image` |
-
-## Invalid endpoints
-- `GET /shops/:id/products` — returns HTML (404/redirect) without auth. **Do not use.**
-  Use `GET /products?shopId=:id` instead.
-
-**Why:** The production backend uses `shopName` (not `name`) and wraps single-resource
-responses. All fetch sites must unwrap + normalize before using the data.
-
-**How to apply:** Any new fetch of a shop or product must call `normalizeShop` /
-extract `res.product ?? res` before assigning to typed variables.
+- Single-resource endpoints wrap in `{shop:…}`/`{product:…}`; field names differ (`shopName` not `name`, `banner` not `coverImage`, `images[]` not `image`).
+- `/shops/:id/products` is invalid — use `/products?shopId=:id`.
+- Registration is `POST /auth/signup`, **not** `/auth/register` (that path 404s). Login is `POST /auth/login` with `{phone, password}` (not email). Both return `{success, accessToken, refreshToken, user}` directly (no nested `data` wrapper) — `user.email` comes back as `""` even if a real email was submitted at signup.
+- `/auth/signup` has an aggressive per-IP rate limit ("Too many signup attempts. Please wait 15 minutes") that triggers after only a few attempts — do not loop signup calls while debugging; verify logic against a single real call, then reason about the rest statically.

@@ -18,11 +18,19 @@ export default function Index() {
   });
 
   useEffect(() => {
-    const sub = player.addListener('playToEnd', () => {
+    const finish = () => {
+      // Pause before tearing down the view — releasing an actively-playing
+      // native player at the exact moment of unmount can crash the app.
+      try {
+        player.pause();
+      } catch {
+        // player may already be released; safe to ignore
+      }
       setVideoFinished(true);
-    });
+    };
+    const sub = player.addListener('playToEnd', finish);
     // Safety: navigate even if the playToEnd event never fires
-    const timeout = setTimeout(() => setVideoFinished(true), 8000);
+    const timeout = setTimeout(finish, 8000);
     return () => {
       sub.remove();
       clearTimeout(timeout);
@@ -31,15 +39,21 @@ export default function Index() {
 
   useEffect(() => {
     if (!videoFinished || isLoading) return;
-    if (!user) {
-      router.replace('/login');
-    } else if (user.role === 'vendor') {
-      router.replace('/(vendor)/dashboard');
-    } else if (user.role === 'rider') {
-      router.replace('/(rider)/dashboard');
-    } else {
-      router.replace('/(customer)/home');
-    }
+    // Give the native VideoView a beat to unmount cleanly before we swap
+    // routes — navigating in the same tick as playToEnd can tear down the
+    // video surface mid-teardown and crash on native.
+    const nav = setTimeout(() => {
+      if (!user) {
+        router.replace('/login');
+      } else if (user.role === 'vendor') {
+        router.replace('/(vendor)/dashboard');
+      } else if (user.role === 'rider') {
+        router.replace('/(rider)/dashboard');
+      } else {
+        router.replace('/(customer)/home');
+      }
+    }, 50);
+    return () => clearTimeout(nav);
   }, [videoFinished, user, isLoading]);
 
   // Once finished, show blank screen while navigation happens

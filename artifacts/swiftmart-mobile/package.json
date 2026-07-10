@@ -2,6 +2,7 @@
   "name": "@workspace/swiftmart-mobile",
   "version": "0.0.0",
   "private": true,
+  "packageManager": "pnpm@10.26.1",
   "main": "expo-router/entry",
   "scripts": {
     "dev": "EXPO_PACKAGER_PROXY_URL=https://$REPLIT_EXPO_DEV_DOMAIN EXPO_PUBLIC_DOMAIN=$REPLIT_DEV_DOMAIN EXPO_PUBLIC_REPL_ID=$REPL_ID REACT_NATIVE_PACKAGER_HOSTNAME=$REPLIT_DEV_DOMAIN pnpm exec expo start --localhost --port $PORT",
@@ -57,7 +58,7 @@
   "dependencies": {
     "@react-native-google-signin/google-signin": "^16.1.2",
     "expo-auth-session": "~7.0.11",
-    "expo-build-properties": "^57.0.3",
+    "expo-build-properties": "^1.0.10",
     "expo-crypto": "~15.0.9",
     "expo-device": "~8.0.10",
     "expo-file-system": "~19.0.23",

@@ -4,7 +4,7 @@ A hyperlocal grocery/retail delivery platform — multi-sided marketplace connec
 
 ## Run & Operate
 
-- **Expo app:** running via the `artifacts/swiftmart-mobile: expo` workflow (`pnpm --filter @workspace/swiftmart-mobile run dev`), registered as an artifact at preview path `/swiftmart-mobile/`. Verified working (login screen renders, no errors).
+- **Expo app:** running via the `artifacts/swiftmart-mobile: expo` workflow (`pnpm --filter @workspace/swiftmart-mobile run dev`), registered as an artifact at preview path `/swiftmart-mobile/`. Verified working (login screen renders, no errors). Re-verified after re-import on 2026-07-10.
 - **API server:** running via the `artifacts/api-server: API Server` workflow. This is **not** unused boilerplate — on web, the Expo app's `lib/api.ts` routes all backend calls through this server's `/api/proxy/*` route (see `artifacts/api-server/src/routes/proxy.ts`), because the production backend's CORS policy blocks the Replit preview origin. Native (iOS/Android) builds skip the proxy and call the production backend directly. Both workflows must run together for the web preview to work end-to-end.
 - `artifacts/mockup-sandbox` — Canvas design-preview sandbox, auto-registered from the import, not actively used; left stopped.
 

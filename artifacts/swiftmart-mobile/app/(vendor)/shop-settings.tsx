@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity,
-  Switch, Alert, ActivityIndicator, Platform, KeyboardAvoidingView,
+  Switch, ActivityIndicator, Platform, KeyboardAvoidingView,
 } from 'react-native';
+import { showAlert } from '@/lib/alert';
 import { router } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
@@ -73,7 +74,7 @@ export default function VendorShopSettingsScreen() {
 
   async function handleSave() {
     if (!form.name.trim()) {
-      Alert.alert('Missing field', 'Shop name is required.');
+      showAlert('Missing field', 'Shop name is required.');
       return;
     }
     try {
@@ -92,12 +93,12 @@ export default function VendorShopSettingsScreen() {
       });
       qc.invalidateQueries({ queryKey: ['my-shop'] });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert('Saved', 'Your shop settings have been updated.', [
+      showAlert('Saved', 'Your shop settings have been updated.', [
         { text: 'OK', onPress: () => router.back() },
       ]);
     } catch (e: unknown) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert('Error', e instanceof Error ? e.message : 'Could not save shop settings.');
+      showAlert('Error', e instanceof Error ? e.message : 'Could not save shop settings.');
     } finally {
       setSaving(false);
     }

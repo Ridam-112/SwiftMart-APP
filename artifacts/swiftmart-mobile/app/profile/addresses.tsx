@@ -1,8 +1,9 @@
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
-  TextInput, Alert, Modal, KeyboardAvoidingView, Platform,
+  TextInput, Modal, KeyboardAvoidingView, Platform,
 } from 'react-native';
+import { showAlert } from '@/lib/alert';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useColors } from '@/hooks/useColors';
@@ -34,7 +35,7 @@ export default function SavedAddressesScreen() {
   }
 
   function handleDelete(idx: number) {
-    Alert.alert('Delete Address', 'Remove this address?', [
+    showAlert('Delete Address', 'Remove this address?', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete', style: 'destructive',
@@ -49,7 +50,7 @@ export default function SavedAddressesScreen() {
 
   function handleSave() {
     if (!form.street.trim() || !form.city.trim() || !form.state.trim() || !form.pincode.trim()) {
-      Alert.alert('Incomplete', 'Please fill in all fields.');
+      showAlert('Incomplete', 'Please fill in all fields.');
       return;
     }
     const next = [...addresses];

@@ -1,8 +1,9 @@
 import React from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  ActivityIndicator, RefreshControl, Platform, Alert,
+  ActivityIndicator, RefreshControl, Platform,
 } from 'react-native';
+import { showAlert } from '@/lib/alert';
 import { router } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
@@ -54,7 +55,7 @@ export default function NotificationsScreen() {
       await api.post('/notifications/read-all', {});
       qc.invalidateQueries({ queryKey: ['notifications'] });
     } catch (e: unknown) {
-      Alert.alert('Error', e instanceof Error ? e.message : 'Could not update notifications.');
+      showAlert('Error', e instanceof Error ? e.message : 'Could not update notifications.');
     }
   }
 

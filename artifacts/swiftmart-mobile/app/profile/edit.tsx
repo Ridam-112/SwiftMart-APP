@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity,
-  ScrollView, Alert, ActivityIndicator, Platform, KeyboardAvoidingView,
+  ScrollView, ActivityIndicator, Platform, KeyboardAvoidingView,
 } from 'react-native';
+import { showAlert } from '@/lib/alert';
 import * as Haptics from 'expo-haptics';
 import { useColors } from '@/hooks/useColors';
 import { useAuth } from '@/context/AuthContext';
@@ -18,7 +19,7 @@ export default function EditProfileScreen() {
   const [saving, setSaving] = useState(false);
 
   async function handleSave() {
-    if (!name.trim()) { Alert.alert('Error', 'Name cannot be empty.'); return; }
+    if (!name.trim()) { showAlert('Error', 'Name cannot be empty.'); return; }
     setSaving(true);
     try {
       // Try to persist via API; fall back to local-only update if endpoint doesn't exist
@@ -27,9 +28,9 @@ export default function EditProfileScreen() {
       } catch {}
       await updateUser({ name: name.trim(), email: email.trim(), phone: phone.trim() });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert('Saved', 'Your profile has been updated.');
+      showAlert('Saved', 'Your profile has been updated.');
     } catch (e: unknown) {
-      Alert.alert('Error', e instanceof Error ? e.message : 'Failed to update profile.');
+      showAlert('Error', e instanceof Error ? e.message : 'Failed to update profile.');
     } finally {
       setSaving(false);
     }

@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity,
-  KeyboardAvoidingView, Platform, Alert, ActivityIndicator,
+  KeyboardAvoidingView, Platform, ActivityIndicator,
 } from 'react-native';
+import { showAlert } from '@/lib/alert';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,7 +22,7 @@ export default function OnboardingScreen() {
 
   async function handleContinue() {
     if (pincode.trim().length !== 6 || !/^\d{6}$/.test(pincode.trim())) {
-      Alert.alert('Invalid pincode', 'Please enter a valid 6-digit pincode.');
+      showAlert('Invalid pincode', 'Please enter a valid 6-digit pincode.');
       return;
     }
     try {
@@ -35,7 +36,7 @@ export default function OnboardingScreen() {
       await updateUser({ pincode: pincode.trim() });
       router.replace('/(customer)/home');
     } catch (e: unknown) {
-      Alert.alert('Error', e instanceof Error ? e.message : 'Please try again.');
+      showAlert('Error', e instanceof Error ? e.message : 'Please try again.');
     } finally {
       setLoading(false);
     }

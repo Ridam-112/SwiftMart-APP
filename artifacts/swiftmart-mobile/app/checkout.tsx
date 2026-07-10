@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity,
-  ScrollView, Alert, ActivityIndicator, Platform,
+  ScrollView, ActivityIndicator, Platform,
 } from 'react-native';
+import { showAlert } from '@/lib/alert';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -38,10 +39,10 @@ export default function CheckoutScreen() {
   async function placeOrder() {
     const { name, phone, street, city, state, pincode } = address;
     if (!name || !phone || !street || !city || !state || !pincode) {
-      Alert.alert('Incomplete address', 'Please fill in all delivery details.');
+      showAlert('Incomplete address', 'Please fill in all delivery details.');
       return;
     }
-    if (!shopId) { Alert.alert('Cart error', 'Cart is empty or shop not found.'); return; }
+    if (!shopId) { showAlert('Cart error', 'Cart is empty or shop not found.'); return; }
 
     try {
       setLoading(true);
@@ -61,12 +62,12 @@ export default function CheckoutScreen() {
       await api.post('/orders', orderPayload);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       clearCart();
-      Alert.alert('Order Placed!', 'Your order has been placed successfully.', [
+      showAlert('Order Placed!', 'Your order has been placed successfully.', [
         { text: 'View Orders', onPress: () => router.replace('/(customer)/orders') },
       ]);
     } catch (e: unknown) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert('Order failed', e instanceof Error ? e.message : 'Please try again.');
+      showAlert('Order failed', e instanceof Error ? e.message : 'Please try again.');
     } finally {
       setLoading(false);
     }

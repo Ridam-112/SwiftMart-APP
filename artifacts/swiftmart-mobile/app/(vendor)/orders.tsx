@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, FlatList, RefreshControl, ActivityIndicator, TouchableOpacity, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, FlatList, RefreshControl, ActivityIndicator, TouchableOpacity, Platform } from 'react-native';
+import { showAlert } from '@/lib/alert';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -32,7 +33,7 @@ export default function VendorOrdersScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       qc.invalidateQueries({ queryKey: ['vendor-orders'] });
     } catch (e: unknown) {
-      Alert.alert('Error', e instanceof Error ? e.message : 'Could not update order status.');
+      showAlert('Error', e instanceof Error ? e.message : 'Could not update order status.');
     }
   }
 

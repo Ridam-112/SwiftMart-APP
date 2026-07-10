@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  KeyboardAvoidingView, Platform, ScrollView, Alert,
+  KeyboardAvoidingView, Platform, ScrollView,
   ActivityIndicator, Image,
 } from 'react-native';
+import { showAlert } from '@/lib/alert';
 import { useRouter, Link } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -66,7 +67,7 @@ export default function LoginScreen() {
   async function handleLogin() {
     const trimmed = email.trim().toLowerCase();
     if (!trimmed || !password) {
-      Alert.alert('Missing fields', 'Please enter your email and password.');
+      showAlert('Missing fields', 'Please enter your email and password.');
       return;
     }
     try {
@@ -77,7 +78,7 @@ export default function LoginScreen() {
     } catch (e: unknown) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       const msg = e instanceof Error ? e.message : 'Please try again.';
-      Alert.alert('Sign in failed', msg);
+      showAlert('Sign in failed', msg);
     } finally {
       setLoading(false);
     }
@@ -97,7 +98,7 @@ export default function LoginScreen() {
       } else {
         // Web: OIDC redirect flow
         if (!GOOGLE_CLIENT_ID) {
-          Alert.alert('Google Sign-In unavailable', 'EXPO_PUBLIC_GOOGLE_CLIENT_ID not set.');
+          showAlert('Google Sign-In unavailable', 'EXPO_PUBLIC_GOOGLE_CLIENT_ID not set.');
           return;
         }
         const result = await webPromptAsync();
@@ -111,7 +112,7 @@ export default function LoginScreen() {
       router.replace('/');
     } catch (e: unknown) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert('Google Sign-In failed', e instanceof Error ? e.message : 'Please try again.');
+      showAlert('Google Sign-In failed', e instanceof Error ? e.message : 'Please try again.');
     } finally {
       setGoogleLoading(false);
     }
@@ -120,16 +121,16 @@ export default function LoginScreen() {
   // ── Truecaller ────────────────────────────────────────────────────────────
   async function handleTruecaller() {
     if (Platform.OS !== 'android') {
-      Alert.alert('Not available', 'Sign in with Truecaller is only available on Android.');
+      showAlert('Not available', 'Sign in with Truecaller is only available on Android.');
       return;
     }
     if (!TRUECALLER_APP_KEY) {
-      Alert.alert('Truecaller not configured', 'EXPO_PUBLIC_TRUECALLER_APP_KEY not set.');
+      showAlert('Truecaller not configured', 'EXPO_PUBLIC_TRUECALLER_APP_KEY not set.');
       return;
     }
     const usable = await TruecallerSDK.isTruecallerUsable();
     if (!usable) {
-      Alert.alert('Truecaller not installed', 'Please install the Truecaller app and try again.');
+      showAlert('Truecaller not installed', 'Please install the Truecaller app and try again.');
       return;
     }
     try {
@@ -145,7 +146,7 @@ export default function LoginScreen() {
       router.replace('/');
     } catch (e: unknown) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert(
+      showAlert(
         'Truecaller Sign-In failed',
         e instanceof Error ? e.message : 'Please try again or use email + password.',
       );

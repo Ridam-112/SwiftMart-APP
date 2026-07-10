@@ -22,12 +22,7 @@ Live production API: **`https://swiftmart.space/api`**
 
 The Expo app is a **frontend only** — there is no app-owned backend; `artifacts/api-server` is a thin proxy, not the real backend. Native (iOS/Android) builds call the production API directly (`lib/api.ts`). On **web**, browser requests instead go through `artifacts/api-server`'s `/api/proxy/*` route, which forwards them server-to-server to production — this sidesteps the production backend's CORS policy, which blocks the Replit preview origin. Both the Expo and API Server workflows must be running for the web preview to work end-to-end.
 
-Demo credentials:
-| Role | Email | Password |
-|------|-------|----------|
-| Customer | priya.sharma@swiftmart.in | Swift@2026 |
-| Vendor | rahul.vendor@swiftmart.in | Swift@2026 |
-| Rider | arjun.rider@swiftmart.in | Swift@2026 |
+**No demo credentials exist.** The `users` table in Neon DB is live production data (93 real accounts as of 2026-07-10, e.g. `harshagarwal102012@gmail.com`) — the `priya.sharma@swiftmart.in` / `rahul.vendor@swiftmart.in` / `arjun.rider@swiftmart.in` accounts previously documented here do not exist in the database and always 401. To test sign-in, either register a new account in-app or ask the user for a real production login.
 
 ## User preferences
 

@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ActivityIndicator,
-  Platform, TextInput, Alert, Linking,
+  Platform, TextInput, Linking,
 } from 'react-native';
+import { showAlert } from '@/lib/alert';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Location from 'expo-location';
@@ -80,13 +81,13 @@ export default function RiderActiveDeliveryScreen() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       refetch();
     } catch (e: unknown) {
-      Alert.alert('Error', e instanceof Error ? e.message : 'Could not start delivery.');
+      showAlert('Error', e instanceof Error ? e.message : 'Could not start delivery.');
     }
   }
 
   async function markDelivered() {
     if (otp.trim().length < 4) {
-      Alert.alert('Enter OTP', 'Ask the customer for their delivery OTP.');
+      showAlert('Enter OTP', 'Ask the customer for their delivery OTP.');
       return;
     }
     try {
@@ -95,12 +96,12 @@ export default function RiderActiveDeliveryScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       qc.invalidateQueries({ queryKey: ['rider-deliveries'] });
       qc.invalidateQueries({ queryKey: ['rider-stats'] });
-      Alert.alert('Delivered!', 'Order marked as delivered.', [
+      showAlert('Delivered!', 'Order marked as delivered.', [
         { text: 'OK', onPress: () => router.replace('/(rider)/deliveries') },
       ]);
     } catch (e: unknown) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert('Invalid OTP', e instanceof Error ? e.message : 'Could not verify OTP.');
+      showAlert('Invalid OTP', e instanceof Error ? e.message : 'Could not verify OTP.');
     } finally {
       setSubmitting(false);
     }

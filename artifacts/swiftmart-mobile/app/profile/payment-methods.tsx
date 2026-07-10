@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { showAlert } from '@/lib/alert';
 import { Ionicons } from '@expo/vector-icons';
 import { useColors } from '@/hooks/useColors';
 import { ScreenHeader } from '@/components/ScreenHeader';
@@ -25,14 +26,14 @@ export default function PaymentMethodsScreen() {
   const [methods] = useState<Method[]>(DEFAULT_METHODS);
 
   function handleRemove(label: string) {
-    Alert.alert('Remove', `Remove "${label}"?`, [
+    showAlert('Remove', `Remove "${label}"?`, [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Remove', style: 'destructive', onPress: () => Alert.alert('Demo', 'Payment management coming soon.') },
+      { text: 'Remove', style: 'destructive', onPress: () => showAlert('Demo', 'Payment management coming soon.') },
     ]);
   }
 
   function handleAdd(label: string) {
-    Alert.alert('Coming Soon', `${label} will be available soon.`);
+    showAlert('Coming Soon', `${label} will be available soon.`);
   }
 
   const iconColor = (type: Method['type']) =>

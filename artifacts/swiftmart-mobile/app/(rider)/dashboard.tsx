@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, ActivityIndicator, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, ActivityIndicator, Platform } from 'react-native';
+import { showAlert } from '@/lib/alert';
 import { router } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -42,7 +43,7 @@ export default function RiderDashboard() {
       qc.invalidateQueries({ queryKey: ['rider-deliveries'] });
       router.push({ pathname: '/rider-delivery/[id]', params: { id: orderId } });
     } catch (e: unknown) {
-      Alert.alert('Error', e instanceof Error ? e.message : 'Could not accept delivery.');
+      showAlert('Error', e instanceof Error ? e.message : 'Could not accept delivery.');
     }
   }
 

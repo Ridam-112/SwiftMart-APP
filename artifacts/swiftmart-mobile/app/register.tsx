@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  KeyboardAvoidingView, Platform, ScrollView, Alert, ActivityIndicator,
+  KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator,
 } from 'react-native';
+import { showAlert } from '@/lib/alert';
 import { Link, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -29,11 +30,11 @@ export default function RegisterScreen() {
 
   async function handleRegister() {
     if (!name.trim() || !email.trim() || !phone.trim() || !password) {
-      Alert.alert('Missing fields', 'Please fill in all fields.');
+      showAlert('Missing fields', 'Please fill in all fields.');
       return;
     }
     if (password.length < 6) {
-      Alert.alert('Weak password', 'Password must be at least 6 characters.');
+      showAlert('Weak password', 'Password must be at least 6 characters.');
       return;
     }
     try {
@@ -45,7 +46,7 @@ export default function RegisterScreen() {
       router.replace(role === 'customer' ? '/onboarding' : '/');
     } catch (e: unknown) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert('Registration failed', e instanceof Error ? e.message : 'Please try again.');
+      showAlert('Registration failed', e instanceof Error ? e.message : 'Please try again.');
     } finally {
       setLoading(false);
     }

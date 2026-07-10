@@ -11,7 +11,10 @@
     },
     "preview": {
       "distribution": "internal",
-      "node": "20.18.1"
+      "node": "20.18.1",
+      "android": {
+        "buildType": "apk"
+      }
     },
     "production": {
       "autoIncrement": true,

@@ -26,16 +26,12 @@ const GOOGLE_DISCOVERY: AuthSession.DiscoveryDocument = {
 // ─── Truecaller ──────────────────────────────────────────────────────────────
 const TRUECALLER_APP_KEY = process.env.EXPO_PUBLIC_TRUECALLER_APP_KEY ?? '';
 
-// Dynamically import Truecaller module — only exists on Android native builds.
-// On web the stub returns false / throws an error.
-type TruecallerModule = typeof import('@/modules/expo-truecaller/src/index');
-let TruecallerSDK: TruecallerModule | null = null;
-try {
-  // This works on native; on web the /src/index.web.ts stub is used instead.
-  TruecallerSDK = require('@/modules/expo-truecaller/src/index') as TruecallerModule;
-} catch {
-  TruecallerSDK = null;
-}
+// Metro resolves platform-specific extensions automatically:
+//   index.web.ts → web (returns false / throws — safe stub)
+//   index.ts     → Android native (real SDK)
+// A static import is correct here; the try-catch require pattern does NOT work
+// reliably with Metro because all requires are resolved statically at bundle time.
+import * as TruecallerSDK from '@/modules/expo-truecaller/src/index';
 
 export default function LoginScreen() {
   const colors = useColors();
@@ -67,11 +63,11 @@ export default function LoginScreen() {
 
   // ── Check Truecaller availability on mount ─────────────────────────────────
   useEffect(() => {
-    if (Platform.OS !== 'android' || !TRUECALLER_APP_KEY || !TruecallerSDK) return;
+    if (Platform.OS !== 'android' || !TRUECALLER_APP_KEY) return;
     (async () => {
       try {
-        await TruecallerSDK!.initializeTruecaller(TRUECALLER_APP_KEY);
-        const usable = await TruecallerSDK!.isTruecallerUsable();
+        await TruecallerSDK.initializeTruecaller(TRUECALLER_APP_KEY);
+        const usable = await TruecallerSDK.isTruecallerUsable();
         setTruecallerAvailable(usable);
       } catch {}
     })();
@@ -139,10 +135,6 @@ export default function LoginScreen() {
         'Truecaller not configured',
         'Set EXPO_PUBLIC_TRUECALLER_APP_KEY to enable Truecaller login.',
       );
-      return;
-    }
-    if (!TruecallerSDK) {
-      Alert.alert('Truecaller unavailable', 'This feature requires a native build.');
       return;
     }
     if (!truecallerAvailable) {

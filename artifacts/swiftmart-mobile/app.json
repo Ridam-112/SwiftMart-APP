@@ -43,6 +43,17 @@
           "icon": "./assets/images/icon.png",
           "color": "#16A34A"
         }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "extraMavenRepos": [
+              "https://jitpack.io",
+              "https://oss.jfrog.org/libs-snapshot"
+            ]
+          }
+        }
       ]
     ],
     "notification": {

@@ -15,6 +15,9 @@
     "preview": {
       "distribution": "internal",
       "node": "20.18.1",
+      "android": {
+        "buildType": "apk"
+      },
       "env": {
         "EAS_NO_NPM_CI": "1"
       }
@@ -22,6 +25,9 @@
     "production": {
       "autoIncrement": true,
       "node": "20.18.1",
+      "android": {
+        "buildType": "app-bundle"
+      },
       "env": {
         "EAS_NO_NPM_CI": "1"
       }

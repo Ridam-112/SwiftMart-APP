@@ -12,11 +12,6 @@ import { useAuth, RegisterPayload } from '@/context/AuthContext';
 import { useColors } from '@/hooks/useColors';
 
 type Role = 'customer' | 'vendor' | 'rider';
-const ROLES: { value: Role; label: string; icon: string; desc: string }[] = [
-  { value: 'customer', label: 'Customer',    icon: 'person-outline',    desc: 'Browse & order' },
-  { value: 'vendor',   label: 'Vendor',      icon: 'storefront-outline', desc: 'Sell products' },
-  { value: 'rider',    label: 'Rider',       icon: 'bicycle-outline',   desc: 'Deliver orders' },
-];
 
 export default function RegisterScreen() {
   const colors = useColors();
@@ -29,7 +24,7 @@ export default function RegisterScreen() {
   const [phone, setPhone]       = useState('');
   const [password, setPassword] = useState('');
   const [showPw, setShowPw]     = useState(false);
-  const [role, setRole]         = useState<Role>('customer');
+  const role: Role = 'customer';
   const [loading, setLoading]   = useState(false);
 
   async function handleRegister() {
@@ -65,25 +60,6 @@ export default function RegisterScreen() {
         </LinearGradient>
 
         <View style={[styles.form, { backgroundColor: colors.background }]}>
-          {/* Role selector */}
-          <Text style={[styles.sectionLabel, { color: colors.foreground }]}>I am a…</Text>
-          <View style={styles.roleRow}>
-            {ROLES.map(r => (
-              <TouchableOpacity
-                key={r.value}
-                style={[
-                  styles.roleCard,
-                  { borderColor: role === r.value ? colors.primary : colors.border, backgroundColor: role === r.value ? colors.secondary : colors.card },
-                ]}
-                onPress={() => setRole(r.value)}
-              >
-                <Ionicons name={r.icon as 'person-outline'} size={22} color={role === r.value ? colors.primary : colors.mutedForeground} />
-                <Text style={[styles.roleLabel, { color: role === r.value ? colors.primary : colors.foreground }]}>{r.label}</Text>
-                <Text style={[styles.roleDesc, { color: colors.mutedForeground }]}>{r.desc}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
           {/* Fields */}
           {[
             { label: 'Full Name', value: name, onChange: setName, icon: 'person-outline', keyboardType: 'default', autoCapitalize: 'words', placeholder: 'Your name' },
@@ -146,14 +122,6 @@ const styles = StyleSheet.create({
   brand: { color: '#fff', fontSize: 26, fontWeight: '800' },
   tagline: { color: 'rgba(255,255,255,0.85)', fontSize: 14, marginTop: 4 },
   form: { flex: 1, padding: 24, borderTopLeftRadius: 24, borderTopRightRadius: 24, marginTop: -20 },
-  sectionLabel: { fontSize: 14, fontWeight: '600', marginBottom: 10 },
-  roleRow: { flexDirection: 'row', gap: 8, marginBottom: 20 },
-  roleCard: {
-    flex: 1, borderWidth: 1.5, borderRadius: 12, padding: 10,
-    alignItems: 'center', gap: 4,
-  },
-  roleLabel: { fontSize: 12, fontWeight: '700' },
-  roleDesc: { fontSize: 10, textAlign: 'center' },
   inputWrap: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 14, marginBottom: 12,

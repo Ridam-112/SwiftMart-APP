@@ -6,7 +6,7 @@ import { registerForPushNotifications, unregisterPushToken } from '@/lib/pushNot
 
 export interface RegisterPayload {
   name: string;
-  email?: string;
+  email: string;
   password: string;
   phone: string;
   role: 'customer' | 'vendor' | 'rider';
@@ -16,7 +16,9 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   isLoading: boolean;
-  login: (phone: string, password: string) => Promise<void>;
+  /** Email + password login — routes through our api-server which verifies
+   *  against the Neon DB and forwards the session to the production API. */
+  login: (email: string, password: string) => Promise<void>;
   loginWithGoogle: (idToken: string) => Promise<void>;
   loginWithTruecaller: (accessToken: string, requestNonce: string, profile: { phone: string; name: string; email?: string }) => Promise<void>;
   register: (data: RegisterPayload) => Promise<void>;
@@ -72,15 +74,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     registerForPushNotifications(t).catch(() => {});
   }
 
-  // ─── Mobile number + password ────────────────────────────────────────────
-  async function login(phone: string, password: string) {
-    const res = await fetch(authUrl('/auth/login'), {
+  // ─── Email + password ────────────────────────────────────────────────────
+  // Routes through our api-server (/api/auth/email-login) which:
+  //  1. Verifies email + bcrypt hash against the Neon DB
+  //  2. Forwards the phone + password to the production API
+  //  3. Returns the production token so all existing API calls keep working
+  async function login(email: string, password: string) {
+    if (!API_SERVER_BASE) {
+      throw new Error('API server URL is not configured (EXPO_PUBLIC_DOMAIN or EXPO_PUBLIC_API_SERVER_URL missing).');
+    }
+    const res = await fetch(`${API_SERVER_BASE}/auth/email-login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone, password }),
+      body: JSON.stringify({ email, password }),
     });
     const data = await res.json().catch(() => ({})) as Record<string, unknown>;
-    if (!res.ok) throw new Error((data.message as string) || 'Invalid phone number or password');
+    if (!res.ok) throw new Error((data.message as string) || 'Invalid email or password');
     await applySession(data);
   }
 

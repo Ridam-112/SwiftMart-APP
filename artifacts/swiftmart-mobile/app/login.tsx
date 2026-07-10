@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   KeyboardAvoidingView, Platform, ScrollView, Alert,
@@ -8,30 +8,32 @@ import { useRouter, Link } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import * as AuthSession from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
 import { useAuth } from '@/context/AuthContext';
 import { useColors } from '@/hooks/useColors';
 
+// ─── Google Sign-In ───────────────────────────────────────────────────────────
+// On native (Android/iOS) we use @react-native-google-signin/google-signin
+// which shows the native account picker — no browser redirect, Play Store ready.
+// On web we fall back to expo-auth-session (OIDC redirect flow).
+import * as AuthSession from 'expo-auth-session';
+import * as TruecallerSDK from '@/modules/expo-truecaller/src/index';
+
+// Only import native Google SDK on native platforms; avoid crashing on web.
+// Metro resolves platform-specific files automatically (.web.ts stub exists).
+import * as GoogleSDK from '@/lib/googleSignIn';
+
 WebBrowser.maybeCompleteAuthSession();
 
-// ─── Google OAuth ────────────────────────────────────────────────────────────
+// Web-only Google OAuth via expo-auth-session
 const GOOGLE_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID ?? '';
-const GOOGLE_DISCOVERY: AuthSession.DiscoveryDocument = {
-  authorizationEndpoint: 'https://accounts.google.com/o/oauth2/v2/auth',
-  tokenEndpoint:         'https://oauth2.googleapis.com/token',
-  revocationEndpoint:    'https://oauth2.googleapis.com/revoke',
-};
-
-// ─── Truecaller ──────────────────────────────────────────────────────────────
 const TRUECALLER_APP_KEY = process.env.EXPO_PUBLIC_TRUECALLER_APP_KEY ?? '';
 
-// Metro resolves platform-specific extensions automatically:
-//   index.web.ts → web (returns false / throws — safe stub)
-//   index.ts     → Android native (real SDK)
-// A static import is correct here; the try-catch require pattern does NOT work
-// reliably with Metro because all requires are resolved statically at bundle time.
-import * as TruecallerSDK from '@/modules/expo-truecaller/src/index';
+const GOOGLE_DISCOVERY: AuthSession.DiscoveryDocument = {
+  authorizationEndpoint: 'https://accounts.google.com/o/oauth2/v2/auth',
+  tokenEndpoint: 'https://oauth2.googleapis.com/token',
+  revocationEndpoint: 'https://oauth2.googleapis.com/revoke',
+};
 
 export default function LoginScreen() {
   const colors = useColors();
@@ -39,18 +41,17 @@ export default function LoginScreen() {
   const router = useRouter();
   const { login, loginWithGoogle, loginWithTruecaller } = useAuth();
 
-  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
-  const [truecallerLoading, setTruecallerLoading] = useState(false);
-  const [truecallerAvailable, setTruecallerAvailable] = useState(false);
 
-  // ── Google auth-session setup ─────────────────────────────────────────────
+  const [loading, setLoading]               = useState(false);
+  const [googleLoading, setGoogleLoading]   = useState(false);
+  const [tcLoading, setTcLoading]           = useState(false);
+
+  // Web Google fallback via expo-auth-session
   const redirectUri = AuthSession.makeRedirectUri({ scheme: 'swiftmart-mobile' });
-
-  const [request, , promptAsync] = AuthSession.useAuthRequest(
+  const [webRequest, , webPromptAsync] = AuthSession.useAuthRequest(
     {
       clientId:     GOOGLE_CLIENT_ID || 'not-configured',
       scopes:       ['openid', 'profile', 'email'],
@@ -61,55 +62,50 @@ export default function LoginScreen() {
     GOOGLE_DISCOVERY,
   );
 
-  // ── Check Truecaller availability on mount ─────────────────────────────────
-  useEffect(() => {
-    if (Platform.OS !== 'android' || !TRUECALLER_APP_KEY) return;
-    (async () => {
-      try {
-        await TruecallerSDK.initializeTruecaller(TRUECALLER_APP_KEY);
-        const usable = await TruecallerSDK.isTruecallerUsable();
-        setTruecallerAvailable(usable);
-      } catch {}
-    })();
-  }, []);
-
-  // ── Handlers ──────────────────────────────────────────────────────────────
+  // ── Email + password ──────────────────────────────────────────────────────
   async function handleLogin() {
-    const trimmedPhone = phone.trim();
-    if (!trimmedPhone || !password) {
-      Alert.alert('Missing fields', 'Please enter your mobile number and password.');
+    const trimmed = email.trim().toLowerCase();
+    if (!trimmed || !password) {
+      Alert.alert('Missing fields', 'Please enter your email and password.');
       return;
     }
     try {
       setLoading(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      await login(trimmedPhone, password);
+      await login(trimmed, password);
       router.replace('/');
     } catch (e: unknown) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert('Login failed', e instanceof Error ? e.message : 'Please try again.');
+      const msg = e instanceof Error ? e.message : 'Please try again.';
+      Alert.alert('Sign in failed', msg);
     } finally {
       setLoading(false);
     }
   }
 
-  async function handleGoogleLogin() {
-    if (!GOOGLE_CLIENT_ID) {
-      Alert.alert(
-        'Google Sign-In unavailable',
-        'EXPO_PUBLIC_GOOGLE_CLIENT_ID is not configured.',
-      );
-      return;
-    }
+  // ── Google Sign-In ────────────────────────────────────────────────────────
+  async function handleGoogle() {
     try {
       setGoogleLoading(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      const result = await promptAsync();
-      if (result.type === 'cancel' || result.type === 'dismiss') return;
-      if (result.type !== 'success') {
-        throw new Error('Google sign-in was not completed.');
+
+      let idToken: string | null = null;
+
+      if (Platform.OS !== 'web') {
+        // Native: use the real Google SDK (no browser redirect)
+        idToken = await GoogleSDK.signIn();
+      } else {
+        // Web: OIDC redirect flow
+        if (!GOOGLE_CLIENT_ID) {
+          Alert.alert('Google Sign-In unavailable', 'EXPO_PUBLIC_GOOGLE_CLIENT_ID not set.');
+          return;
+        }
+        const result = await webPromptAsync();
+        if (result.type === 'cancel' || result.type === 'dismiss') return;
+        if (result.type !== 'success') throw new Error('Google sign-in was not completed.');
+        idToken = result.params.id_token ?? null;
       }
-      const idToken = result.params.id_token;
+
       if (!idToken) throw new Error('No ID token returned by Google.');
       await loginWithGoogle(idToken);
       router.replace('/');
@@ -121,31 +117,23 @@ export default function LoginScreen() {
     }
   }
 
-  async function handleTruecallerLogin() {
-    // On web or iOS — explain the limitation
+  // ── Truecaller ────────────────────────────────────────────────────────────
+  async function handleTruecaller() {
     if (Platform.OS !== 'android') {
-      Alert.alert(
-        'Not available',
-        'Sign in with Truecaller is only available on Android devices.',
-      );
+      Alert.alert('Not available', 'Sign in with Truecaller is only available on Android.');
       return;
     }
     if (!TRUECALLER_APP_KEY) {
-      Alert.alert(
-        'Truecaller not configured',
-        'Set EXPO_PUBLIC_TRUECALLER_APP_KEY to enable Truecaller login.',
-      );
+      Alert.alert('Truecaller not configured', 'EXPO_PUBLIC_TRUECALLER_APP_KEY not set.');
       return;
     }
-    if (!truecallerAvailable) {
-      Alert.alert(
-        'Truecaller not installed',
-        'Please install the Truecaller app and try again.',
-      );
+    const usable = await TruecallerSDK.isTruecallerUsable();
+    if (!usable) {
+      Alert.alert('Truecaller not installed', 'Please install the Truecaller app and try again.');
       return;
     }
     try {
-      setTruecallerLoading(true);
+      setTcLoading(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       const profile = await TruecallerSDK.requestTruecallerProfile();
       const name = [profile.firstName, profile.lastName].filter(Boolean).join(' ') || 'User';
@@ -159,10 +147,10 @@ export default function LoginScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert(
         'Truecaller Sign-In failed',
-        e instanceof Error ? e.message : 'Please try again or use phone + password.',
+        e instanceof Error ? e.message : 'Please try again or use email + password.',
       );
     } finally {
-      setTruecallerLoading(false);
+      setTcLoading(false);
     }
   }
 
@@ -176,35 +164,36 @@ export default function LoginScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Logo ── */}
+        {/* Logo */}
         <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
           <Image
             source={require('../assets/images/logo.png')}
-            style={styles.logoImage}
+            style={styles.logo}
             resizeMode="contain"
           />
           <Text style={styles.brandName}>SwiftMart</Text>
           <Text style={styles.tagline}>Fast delivery, right at your door</Text>
         </View>
 
-        {/* ── Form ── */}
+        {/* Form */}
         <View style={[styles.form, { backgroundColor: colors.background }]}>
           <Text style={[styles.title, { color: colors.foreground }]}>Welcome back</Text>
           <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
             Sign in to your account
           </Text>
 
-          {/* Phone */}
+          {/* Email */}
           <View style={[styles.inputWrap, { borderColor: colors.border, backgroundColor: colors.card }]}>
-            <Ionicons name="call-outline" size={20} color={colors.mutedForeground} />
+            <Ionicons name="mail-outline" size={20} color={colors.mutedForeground} />
             <TextInput
               style={[styles.input, { color: colors.foreground }]}
-              placeholder="Mobile number"
+              placeholder="Email address"
               placeholderTextColor={colors.mutedForeground}
-              keyboardType="phone-pad"
-              value={phone}
-              onChangeText={setPhone}
-              maxLength={10}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              value={email}
+              onChangeText={setEmail}
               returnKeyType="next"
             />
           </View>
@@ -231,25 +220,26 @@ export default function LoginScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Sign in button */}
+          {/* Sign in */}
           <TouchableOpacity
-            style={[styles.loginBtn, { backgroundColor: colors.primary }]}
+            style={[styles.primaryBtn, { backgroundColor: colors.primary }]}
             onPress={handleLogin}
             disabled={loading}
+            activeOpacity={0.85}
           >
             {loading
               ? <ActivityIndicator color="#fff" />
-              : <Text style={styles.loginBtnText}>Sign In</Text>}
+              : <Text style={styles.primaryBtnText}>Sign In</Text>}
           </TouchableOpacity>
 
-          {/* Register link */}
-          <View style={styles.registerRow}>
-            <Text style={[styles.registerText, { color: colors.mutedForeground }]}>
+          {/* Register */}
+          <View style={styles.row}>
+            <Text style={[styles.rowText, { color: colors.mutedForeground }]}>
               Don't have an account?{' '}
             </Text>
             <Link href="/register" asChild>
               <TouchableOpacity>
-                <Text style={[styles.registerLink, { color: colors.primary }]}>Register</Text>
+                <Text style={[styles.rowLink, { color: colors.primary }]}>Register</Text>
               </TouchableOpacity>
             </Link>
           </View>
@@ -257,21 +247,23 @@ export default function LoginScreen() {
           {/* Divider */}
           <View style={styles.dividerRow}>
             <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
-            <Text style={[styles.dividerText, { color: colors.mutedForeground }]}>or continue with</Text>
+            <Text style={[styles.dividerText, { color: colors.mutedForeground }]}>
+              or continue with
+            </Text>
             <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
           </View>
 
-          {/* ── Google Sign-In ── */}
+          {/* Google */}
           <TouchableOpacity
             style={[styles.socialBtn, { borderColor: colors.border, backgroundColor: colors.card }]}
-            onPress={handleGoogleLogin}
-            disabled={googleLoading || !request}
+            onPress={handleGoogle}
+            disabled={googleLoading || (Platform.OS === 'web' && !webRequest)}
+            activeOpacity={0.8}
           >
             {googleLoading ? (
               <ActivityIndicator color={colors.foreground} />
             ) : (
               <>
-                {/* Google "G" logo using coloured text since no asset is bundled */}
                 <Text style={styles.googleG}>G</Text>
                 <Text style={[styles.socialBtnText, { color: colors.foreground }]}>
                   Continue with Google
@@ -280,18 +272,19 @@ export default function LoginScreen() {
             )}
           </TouchableOpacity>
 
-          {/* ── Truecaller Sign-In ── */}
+          {/* Truecaller — shown on all platforms, works only on Android */}
           <TouchableOpacity
-            style={[styles.socialBtn, { borderColor: '#005AFF22', backgroundColor: '#005AFF11' }]}
-            onPress={handleTruecallerLogin}
-            disabled={truecallerLoading}
+            style={[styles.socialBtn, { borderColor: '#005AFF22', backgroundColor: '#005AFF0D' }]}
+            onPress={handleTruecaller}
+            disabled={tcLoading}
+            activeOpacity={0.8}
           >
-            {truecallerLoading ? (
+            {tcLoading ? (
               <ActivityIndicator color="#005AFF" />
             ) : (
               <>
-                <View style={styles.truecallerIcon}>
-                  <Text style={styles.truecallerT}>T</Text>
+                <View style={styles.tcBadge}>
+                  <Text style={styles.tcT}>T</Text>
                 </View>
                 <Text style={[styles.socialBtnText, { color: colors.foreground }]}>
                   Continue with Truecaller
@@ -313,9 +306,10 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
     alignItems: 'center',
   },
-  logoImage: { width: 100, height: 100 },
+  logo:      { width: 100, height: 100 },
   brandName: { color: '#fff', fontSize: 28, fontWeight: '800', marginTop: 8 },
   tagline:   { color: '#ffffff80', fontSize: 13, marginTop: 4 },
+
   form: {
     flex: 1,
     padding: 24,
@@ -325,41 +319,42 @@ const styles = StyleSheet.create({
   },
   title:    { fontSize: 24, fontWeight: '700', marginBottom: 4 },
   subtitle: { fontSize: 14, marginBottom: 24 },
+
   inputWrap: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     borderWidth: 1, borderRadius: 12,
     paddingHorizontal: 14, paddingVertical: 14, marginBottom: 12,
   },
   input: { flex: 1, fontSize: 15 },
-  loginBtn: {
+
+  primaryBtn: {
     height: 52, borderRadius: 12,
     alignItems: 'center', justifyContent: 'center',
     marginBottom: 16, marginTop: 4,
   },
-  loginBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  registerRow:  { flexDirection: 'row', justifyContent: 'center', marginBottom: 24 },
-  registerText: { fontSize: 14 },
-  registerLink: { fontSize: 14, fontWeight: '700' },
-  dividerRow:   { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16 },
-  dividerLine:  { flex: 1, height: 1 },
-  dividerText:  { fontSize: 12, fontWeight: '500' },
+  primaryBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+
+  row:      { flexDirection: 'row', justifyContent: 'center', marginBottom: 24 },
+  rowText:  { fontSize: 14 },
+  rowLink:  { fontSize: 14, fontWeight: '700' },
+
+  dividerRow:  { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16 },
+  dividerLine: { flex: 1, height: 1 },
+  dividerText: { fontSize: 12, fontWeight: '500' },
+
   socialBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
     height: 50, borderRadius: 12, borderWidth: 1, marginBottom: 12,
   },
   socialBtnText: { fontSize: 15, fontWeight: '600' },
-  // Google "G" coloured badge
+
   googleG: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#4285F4',
-    width: 24,
-    textAlign: 'center',
+    fontSize: 18, fontWeight: '800', color: '#4285F4',
+    width: 24, textAlign: 'center',
   },
-  // Truecaller badge
-  truecallerIcon: {
+  tcBadge: {
     width: 24, height: 24, borderRadius: 12,
     backgroundColor: '#005AFF', alignItems: 'center', justifyContent: 'center',
   },
-  truecallerT: { color: '#fff', fontSize: 13, fontWeight: '800' },
+  tcT: { color: '#fff', fontSize: 13, fontWeight: '800' },
 });

@@ -54,7 +54,8 @@
             ]
           }
         }
-      ]
+      ],
+      "@react-native-google-signin/google-signin"
     ],
     "notification": {
       "icon": "./assets/images/icon.png",

@@ -1,36 +1,47 @@
-import { useEffect, useState } from 'react';
-import { View, StyleSheet, TouchableOpacity, Platform } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { View, StyleSheet, Animated, Easing } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
-import { useVideoPlayer, VideoView } from 'expo-video';
-
-const splashSource = require('../assets/videos/splash-video.mp4');
 
 export default function Index() {
   const { user, isLoading } = useAuth();
   const router = useRouter();
-  // On web skip video (html5 autoplay is blocked by browsers)
-  const [videoFinished, setVideoFinished] = useState(Platform.OS === 'web');
+  const [animationDone, setAnimationDone] = useState(false);
 
-  const player = useVideoPlayer(splashSource, (p) => {
-    p.loop = false;
-    p.play();
-  });
+  const scale = useRef(new Animated.Value(0.6)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    const sub = player.addListener('playToEnd', () => {
-      setVideoFinished(true);
-    });
-    // Safety: navigate even if the playToEnd event never fires
-    const timeout = setTimeout(() => setVideoFinished(true), 8000);
-    return () => {
-      sub.remove();
-      clearTimeout(timeout);
-    };
-  }, [player]);
+    Animated.sequence([
+      // Logo fades in and pops up
+      Animated.parallel([
+        Animated.timing(opacity, {
+          toValue: 1,
+          duration: 450,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.spring(scale, {
+          toValue: 1,
+          friction: 5,
+          tension: 60,
+          useNativeDriver: true,
+        }),
+      ]),
+      // Hold
+      Animated.delay(500),
+      // Fade out
+      Animated.timing(opacity, {
+        toValue: 0,
+        duration: 350,
+        easing: Easing.in(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start(() => setAnimationDone(true));
+  }, [opacity, scale]);
 
   useEffect(() => {
-    if (!videoFinished || isLoading) return;
+    if (!animationDone || isLoading) return;
     if (!user) {
       router.replace('/login');
     } else if (user.role === 'vendor') {
@@ -40,33 +51,25 @@ export default function Index() {
     } else {
       router.replace('/(customer)/home');
     }
-  }, [videoFinished, user, isLoading]);
+  }, [animationDone, user, isLoading]);
 
-  // Once finished, show blank screen while navigation happens
-  if (videoFinished) {
+  // Once finished, show blank black screen while navigation happens
+  if (animationDone) {
     return <View style={styles.container} />;
   }
 
   return (
-    // Tap anywhere to skip the intro video
-    <TouchableOpacity
-      style={styles.container}
-      activeOpacity={1}
-      onPress={() => setVideoFinished(true)}
-    >
-      <VideoView
-        style={styles.video}
-        player={player}
-        nativeControls={false}
-        contentFit="cover"
-        allowsFullscreen={false}
-        allowsPictureInPicture={false}
+    <View style={styles.container}>
+      <Animated.Image
+        source={require('../assets/images/logo.png')}
+        style={[styles.logo, { opacity, transform: [{ scale }] }]}
+        resizeMode="contain"
       />
-    </TouchableOpacity>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000' },
-  video: { flex: 1 },
+  container: { flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' },
+  logo: { width: 180, height: 135 },
 });

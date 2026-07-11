@@ -4,3 +4,4 @@
 - [Expo Router dynamic segment conflicts](expo-router-dynamic-routes.md) — reusing the same `[id]` param name across unrelated features causes path/param collisions; give each feature its own top-level route.
 - [Cart quantity decrement anti-pattern](cart-quantity-decrement.md) — never re-call `addItem` to "decrement"; use a dedicated `updateQuantity`/`removeItem`, or it silently increments instead.
 - [SwiftMart env vars](swiftmart-env-vars.md) — required secrets and what breaks without each one.
+- [Reimported multi-artifact recovery](reimported-multiartifact-recovery.md) — restore artifact.toml + start matching workflow name to auto re-register a reimported artifact; don't recreate/delete dirs.

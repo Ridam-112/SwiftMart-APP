@@ -63,3 +63,4 @@ EXPO_PUBLIC_GOOGLE_CLIENT_ID = "556854517102-ueq0udfe68n3es3i6hquc1hu6lefgtuc.ap
 
 [nix]
 channel = "stable-25_05"
+packages = ["eas-cli"]

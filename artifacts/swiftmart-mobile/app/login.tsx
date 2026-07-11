@@ -171,7 +171,6 @@ export default function LoginScreen() {
             style={styles.logo}
             resizeMode="contain"
           />
-          <Text style={styles.brandName}>SwiftMart</Text>
           <Text style={styles.tagline}>Fast delivery, right at your door</Text>
         </View>
 

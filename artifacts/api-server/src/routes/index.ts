@@ -1,18 +1,10 @@
 import { Router, type IRouter } from "express";
-import healthRouter from "./health";
-import proxyRouter from "./proxy";
-import dbRoutes from "./dbRoutes";
-import uploadRoutes from "./upload";
-import notificationsRoutes from "./notifications";
-import authRoutes from "./auth";
+import healthRouter from "./health.js";
+import v1Router from "./v1/index.js";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
-router.use("/db", dbRoutes);
-router.use("/upload", uploadRoutes);
-router.use("/notifications", notificationsRoutes);
-router.use("/auth", authRoutes);
-router.use(proxyRouter);
+router.use(v1Router);
 
 export default router;

@@ -28,7 +28,9 @@ export const API_SERVER_BASE =
   (DOMAIN ? `https://${DOMAIN}/api` : null);
 // If neither env var is set we cannot reach our api-server; features that
 // require it (Truecaller auth, DB routes) will fail with a clear message.
-export const DB_BASE_URL = `https://${DOMAIN}/api/db`;
+// Hero banners / homepage sections / categories are served directly from
+// /api (not /api/db) by the api-server's real backend routes now.
+export const DB_BASE_URL = `https://${DOMAIN}/api`;
 export const UPLOAD_URL = `https://${DOMAIN}/api/upload`;
 export const NOTIFICATIONS_BASE_URL = `https://${DOMAIN}/api/notifications`;
 

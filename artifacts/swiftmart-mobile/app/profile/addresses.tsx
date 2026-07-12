@@ -9,6 +9,7 @@ import { useColors } from '@/hooks/useColors';
 import { useAuth } from '@/context/AuthContext';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { Address } from '@/lib/types';
+import { api } from '@/lib/api';
 
 const EMPTY: Address = { street: '', city: '', state: '', pincode: '' };
 
@@ -33,6 +34,16 @@ export default function SavedAddressesScreen() {
     setModalVisible(true);
   }
 
+  // Persist to the same account record the website reads from, so addresses
+  // added in the app show up on swiftmart.space too. Falls back to a
+  // local-only update if the backend doesn't accept the field yet.
+  async function persistAddresses(next: Address[]) {
+    try {
+      await api.put('/profile', { addresses: next });
+    } catch {}
+    await updateUser({ addresses: next });
+  }
+
   function handleDelete(idx: number) {
     Alert.alert('Delete Address', 'Remove this address?', [
       { text: 'Cancel', style: 'cancel' },
@@ -41,7 +52,7 @@ export default function SavedAddressesScreen() {
         onPress: () => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
           const next = addresses.filter((_, i) => i !== idx);
-          updateUser({ addresses: next });
+          persistAddresses(next);
         },
       },
     ]);
@@ -58,7 +69,7 @@ export default function SavedAddressesScreen() {
     } else {
       next.push(form);
     }
-    updateUser({ addresses: next });
+    persistAddresses(next);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setModalVisible(false);
   }

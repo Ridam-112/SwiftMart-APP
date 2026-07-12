@@ -5,3 +5,5 @@
 - [Cart quantity decrement anti-pattern](cart-quantity-decrement.md) — never re-call `addItem` to "decrement"; use a dedicated `updateQuantity`/`removeItem`, or it silently increments instead.
 - [SwiftMart env vars](swiftmart-env-vars.md) — required secrets and what breaks without each one.
 - [Reimported multi-artifact recovery](reimported-multiartifact-recovery.md) — restore artifact.toml + start matching workflow name to auto re-register a reimported artifact; don't recreate/delete dirs.
+- [EAS monorepo project root confusion](eas-monorepo-project-root.md) — stray app.json/eas.json at the pnpm workspace root make EAS treat the whole monorepo as the Expo project; only the app subdirectory should have them.
+- [Reanimated 4 requires New Architecture](reanimated4-new-architecture.md) — react-native-reanimated@4.x hard-fails Gradle if newArchEnabled is false; don't disable New Arch as an Android-compat workaround while on Reanimated 4.

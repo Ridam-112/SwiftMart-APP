@@ -7,7 +7,7 @@
     "icon": "./assets/images/icon.png",
     "scheme": "swiftmart-mobile",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "splash": {
       "image": "./assets/images/splash-icon.png",
       "resizeMode": "contain",
@@ -48,6 +48,7 @@
         "expo-build-properties",
         {
           "android": {
+            "minSdkVersion": 23,
             "extraMavenRepos": [
               "https://jitpack.io",
               "https://oss.jfrog.org/libs-snapshot"

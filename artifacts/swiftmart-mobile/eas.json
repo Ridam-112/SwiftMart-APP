@@ -15,7 +15,7 @@
       "node": "20.18.1",
       "pnpm": "10.26.1",
       "env": {
-        "EXPO_PUBLIC_DOMAIN": "170542d5-7ae0-4faf-bbed-b18f32c1e01f-00-u5zdpwz9rr70.sisko.replit.dev"
+        "EXPO_PUBLIC_DOMAIN": "swift-mart-app--merajoota1.replit.app"
       },
       "android": {
         "buildType": "apk"
@@ -24,7 +24,10 @@
     "production": {
       "autoIncrement": true,
       "node": "20.18.1",
-      "pnpm": "10.26.1"
+      "pnpm": "10.26.1",
+      "env": {
+        "EXPO_PUBLIC_DOMAIN": "swift-mart-app--merajoota1.replit.app"
+      }
     }
   },
   "submit": {

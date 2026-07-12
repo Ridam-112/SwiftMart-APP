@@ -17,6 +17,36 @@ export default function ProfileScreen() {
 
   const initials = user?.name?.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase() ?? '?';
 
+  if (!user) {
+    return (
+      <ScrollView
+        style={[styles.container, { backgroundColor: colors.background }]}
+        contentContainerStyle={{ paddingBottom: 90 + insets.bottom }}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={[styles.header, { paddingTop: topPad + 12, backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+          <Text style={[styles.headerTitle, { color: colors.foreground }]}>Profile</Text>
+        </View>
+        <View style={styles.guestWrap}>
+          <View style={[styles.guestIcon, { backgroundColor: colors.secondary }]}>
+            <Ionicons name="person-outline" size={40} color={colors.primary} />
+          </View>
+          <Text style={[styles.guestTitle, { color: colors.foreground }]}>You're browsing as a guest</Text>
+          <Text style={[styles.guestText, { color: colors.mutedForeground }]}>
+            Sign in to place orders, save addresses and view your order history.
+          </Text>
+          <TouchableOpacity
+            style={[styles.guestBtn, { backgroundColor: colors.primary }]}
+            onPress={() => router.push('/login')}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.guestBtnText}>Sign In / Sign Up</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    );
+  }
+
   function handleLogout() {
     Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
       { text: 'Cancel', style: 'cancel' },
@@ -124,4 +154,10 @@ const styles = StyleSheet.create({
   menuIcon: { width: 40, height: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   menuLabel: { fontSize: 15, fontWeight: '600' },
   menuSub: { fontSize: 12, marginTop: 1 },
+  guestWrap: { alignItems: 'center', paddingTop: 72, paddingHorizontal: 32, gap: 8 },
+  guestIcon: { width: 84, height: 84, borderRadius: 42, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
+  guestTitle: { fontSize: 18, fontWeight: '700' },
+  guestText: { fontSize: 14, textAlign: 'center', lineHeight: 20 },
+  guestBtn: { paddingHorizontal: 28, paddingVertical: 13, borderRadius: 12, marginTop: 12 },
+  guestBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
 });

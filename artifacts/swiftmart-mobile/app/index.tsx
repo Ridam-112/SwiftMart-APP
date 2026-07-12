@@ -43,7 +43,9 @@ export default function Index() {
   useEffect(() => {
     if (!animationDone || isLoading) return;
     if (!user) {
-      router.replace('/login');
+      // Guests can browse the storefront without signing in; they're only
+      // asked to log in when they try to check out.
+      router.replace('/(customer)/home');
     } else if (user.role === 'vendor') {
       router.replace('/(vendor)/dashboard');
     } else if (user.role === 'rider') {

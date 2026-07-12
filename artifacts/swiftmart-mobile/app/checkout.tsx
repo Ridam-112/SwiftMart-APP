@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity,
   ScrollView, Alert, ActivityIndicator, Platform,
@@ -30,6 +30,12 @@ export default function CheckoutScreen() {
   });
   const [loading, setLoading] = useState(false);
   const DELIVERY_FEE = 30;
+
+  // Defense in depth: cart.tsx already routes guests to /login instead of
+  // here, but guard the screen directly too in case it's reached another way.
+  useEffect(() => {
+    if (!user) router.replace('/login');
+  }, [user]);
 
   function updateField(field: keyof Address, value: string) {
     setAddress(prev => ({ ...prev, [field]: value }));

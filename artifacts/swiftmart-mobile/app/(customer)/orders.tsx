@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, FlatList, RefreshControl, ActivityIndicator, Platform } from 'react-native';
+import { View, Text, StyleSheet, FlatList, RefreshControl, ActivityIndicator, Platform, TouchableOpacity } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,14 +8,17 @@ import { useColors } from '@/hooks/useColors';
 import { OrderCard } from '@/components/OrderCard';
 import { api, extractList } from '@/lib/api';
 import { Order } from '@/lib/types';
+import { useAuth } from '@/context/AuthContext';
 
 export default function OrdersScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const topPad = Platform.OS === 'web' ? 20 : insets.top;
+  const { user } = useAuth();
 
   const { data: orders = [], isLoading, refetch, isRefetching } = useQuery<Order[]>({
     queryKey: ['orders', 'customer'],
+    enabled: !!user,
     queryFn: async () => {
       // On web the Expo app talks through our proxy server — use the enriched
       // endpoint so shop + product IDs get hydrated into full objects.
@@ -28,6 +31,30 @@ export default function OrdersScreen() {
       );
     },
   });
+
+  if (!user) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <View style={[styles.header, { paddingTop: topPad + 12, backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+          <Text style={[styles.headerTitle, { color: colors.foreground }]}>My Orders</Text>
+        </View>
+        <View style={styles.empty}>
+          <Ionicons name="receipt-outline" size={56} color={colors.mutedForeground} />
+          <Text style={[styles.emptyTitle, { color: colors.foreground }]}>Sign in to view orders</Text>
+          <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
+            Your order history is tied to your account.
+          </Text>
+          <TouchableOpacity
+            style={[styles.signInBtn, { backgroundColor: colors.primary }]}
+            onPress={() => router.push('/login')}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.signInBtnText}>Sign In / Sign Up</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -79,4 +106,6 @@ const styles = StyleSheet.create({
   empty: { alignItems: 'center', paddingTop: 80, gap: 10 },
   emptyTitle: { fontSize: 20, fontWeight: '700' },
   emptyText: { fontSize: 14 },
+  signInBtn: { paddingHorizontal: 28, paddingVertical: 13, borderRadius: 12, marginTop: 8 },
+  signInBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
 });

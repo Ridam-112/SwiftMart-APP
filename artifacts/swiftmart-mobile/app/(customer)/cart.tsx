@@ -9,11 +9,20 @@ import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/hooks/useColors';
 import { useCart } from '@/context/CartContext';
+import { useAuth } from '@/context/AuthContext';
 
 export default function CartScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { items, updateQuantity, removeItem, total, itemCount } = useCart();
+  const { user } = useAuth();
+
+  function handleCheckout() {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    // Browsing and adding to cart don't require an account — only checking
+    // out does, since it creates a real order tied to a customer.
+    router.push(user ? '/checkout' : '/login');
+  }
 
   const DELIVERY_FEE = items.length > 0 ? 30 : 0;
   const topPad = Platform.OS === 'web' ? 20 : insets.top;
@@ -117,7 +126,7 @@ export default function CartScreen() {
         </View>
         <TouchableOpacity
           style={[styles.checkoutBtn, { backgroundColor: colors.primary }]}
-          onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); router.push('/checkout'); }}
+          onPress={handleCheckout}
           activeOpacity={0.85}
         >
           <Ionicons name="lock-closed-outline" size={18} color="#fff" />

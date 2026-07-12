@@ -48,7 +48,6 @@
         "expo-build-properties",
         {
           "android": {
-            "minSdkVersion": 23,
             "extraMavenRepos": [
               "https://jitpack.io",
               "https://oss.jfrog.org/libs-snapshot"

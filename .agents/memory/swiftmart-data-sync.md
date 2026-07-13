@@ -1,11 +1,11 @@
 ---
-    name: SwiftMart Neon/Supabase data sync
-    description: How the mobile app stays in sync with the swiftmart.space website's data and images
-    ---
+name: SwiftMart Neon/Supabase sync and backend proxy
+description: How the SwiftMart api-server relates to the Neon DB, Supabase storage, Cloudinary, and the production swiftmart.space backend.
+---
 
-    - The api-server (artifacts/api-server) has a second DB connection, separate from the monorepo's own `@workspace/db` (which uses the Replit-managed `DATABASE_URL`). It connects directly to the website's Neon Postgres via the `NEON_DATABASE_URL` secret, exposed under `/api/db/*` (hero-banners, homepage-sections, categories).
-    - **Why:** the website admin panel writes hero banners/content straight to Neon; the old flow only proxied to swiftmart.space/api, which didn't expose an endpoint for banner content, so the app's banner was hardcoded. Reading Neon directly keeps the app in sync without needing an upstream API change.
-    - Image uploads: `/api/upload` on the api-server pushes new images to Supabase Storage (bucket in `SUPABASE_BUCKET` env var, project in `SUPABASE_URL`, auth via `SUPABASE_ANON_KEY` secret) and returns a public URL. Existing images (already on Cloudinary, cloud name `dpzdtsfd3`) are left as-is — only new uploads go to Supabase, matching the website's current behavior.
-    - **How to apply:** the upload route requires an authenticated bearer token (validated by pinging swiftmart.space's `/users/me/profile`), enforces a strict image-type allowlist checked against real file signature bytes (not just declared mimeType), a 5MB cap, and always generates its own filename/path — never trust client-provided folder or filename for storage writes.
-    - Mobile app must always resolve `DB_BASE_URL`/`UPLOAD_URL` to this project's own api-server domain on every platform (web and native) — never fall back to `swiftmart.space/api`, which has no `/db` or `/upload` routes.
-    
+- Hero banners/categories/shop-types/products/shops read live from the same production Neon DB via api-server (`NEON_DATABASE_URL`, preferred over Replit's own `DATABASE_URL` in `lib/db`). New image uploads go to Supabase storage; existing images stay on Cloudinary.
+- The real production backend lives at `https://swiftmart.space/api`. Our own `artifacts/api-server` is a full clone of it (same Neon DB), not a thin proxy — but the Expo mobile app still calls `swiftmart.space` directly for most routes on native platforms.
+- **Web-platform CORS proxy is load-bearing and easy to lose in a backend rewrite.** `swiftmart.space`'s CORS allowlist rejects unrecognized Origins (e.g. any Replit preview domain), so on Expo **web** the app routes ALL main-API calls through `GET/POST/... /api/proxy/*` on our own api-server, which forwards server-to-server (no Origin header) to `swiftmart.space/api/*`. Native (iOS/Android) skips this and calls swiftmart.space directly.
+- **Why this matters:** if you replace/rewrite `api-server` wholesale (e.g. importing a different backend's source tree), the `/api/proxy/*` catch-all route is trivial to drop since it isn't part of the new backend's own route set — but the mobile app's web build silently breaks (stuck loading data) without it. Always grep the old tree for a `proxy.ts`-style router before deleting it, and re-mount it at the router root (not nested under a prefix) since its own handlers include `/proxy/` in their paths.
+- DB-read/upload/notification routes (`DB_BASE_URL`, `UPLOAD_URL`, `NOTIFICATIONS_BASE_URL` in mobile's `lib/api.ts`) always hit our own api-server directly (not swiftmart.space, not the proxy) on every platform — those are genuinely served by our own DB-backed routes.
+- Verifying an Expo-web splash screen with the Screenshot tool: each call does a fresh page navigation, restarting the splash fade-in animation every time — a static splash screenshot does **not** mean the app is stuck. Check the api-server request log instead (product/category/shop fetches returning 200) to confirm the app actually progressed past the splash route.

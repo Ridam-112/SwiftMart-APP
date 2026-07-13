@@ -22,8 +22,15 @@ import supportRouter from "./support.js";
 import analyticsRouter from "./analytics.js";
 import homepageSectionsRouter from "./homepage-sections.js";
 import servicePincodesRouter from "./servicePincodes.js";
+import proxyRouter from "./proxy.js";
 
 const router = Router();
+
+// Mounted at root (not under a prefix) — its own routes start with "/proxy/".
+// See swiftmart-mobile/lib/api.ts: Expo web calls `${DOMAIN}/api/proxy/...`
+// to sidestep swiftmart.space's CORS allowlist, which rejects this preview
+// domain's Origin header.
+router.use(proxyRouter);
 
 router.use("/auth", authRouter);
 router.use("/admin", adminRouter);

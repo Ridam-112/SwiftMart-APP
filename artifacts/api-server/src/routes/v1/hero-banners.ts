@@ -15,10 +15,25 @@ function scheduleCleanup(set: Set<string>, key: string, ttlMs: number) {
 const router = Router();
 const A = requireRole("admin", "super_admin");
 
+// Legacy mobile-app compatibility: the app's HeroBanner type still expects
+// snake_case fields (image_url, redirect_type, redirect_value, button_text,
+// display_order) from before this backend was rewritten. Add those as
+// aliases alongside the camelCase fields rather than changing the app.
+function withLegacyAliases(banner: Record<string, unknown>): Record<string, unknown> {
+  return {
+    ...banner,
+    image_url: banner["imageUrl"],
+    button_text: banner["buttonText"],
+    redirect_type: banner["redirectType"],
+    redirect_value: banner["redirectValue"],
+    display_order: banner["displayOrder"],
+  };
+}
+
 // GET /api/hero-banners — public, active banners sorted by displayOrder
 router.get("/", async (_req: Request, res: Response): Promise<void> => {
   const banners = await db.select().from(heroBanners).where(eq(heroBanners.isActive, true)).orderBy(asc(heroBanners.displayOrder));
-  res.json({ success: true, banners: miArr(banners) });
+  res.json({ success: true, banners: miArr(banners).map(withLegacyAliases) });
 });
 
 // GET /api/hero-banners/admin — admin, all banners with analytics totals

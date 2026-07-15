@@ -81,6 +81,24 @@ export interface HeroBanner {
   display_order?: number;
 }
 
+export interface HomepageSection {
+  _id: string;
+  id: string;
+  title: string;
+  type: 'trending' | 'category' | 'manual' | 'new_arrivals';
+  enabled: boolean;
+  sortOrder: number;
+  config: {
+    categorySlug?: string;
+    productIds?: string[];
+    limit?: number;
+    layout?: 'grid' | 'scroll';
+  };
+  products: Product[];
+  total: number;
+  hasMore: boolean;
+}
+
 export interface CartItem {
   product: Product;
   quantity: number;

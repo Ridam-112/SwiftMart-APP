@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity,
-  RefreshControl, ActivityIndicator, Platform, ScrollView,
+  Platform, ScrollView, Dimensions, RefreshControl, ActivityIndicator,
 } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
@@ -11,10 +11,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/hooks/useColors';
 import { useCart } from '@/context/CartContext';
 import { api, extractList, DB_BASE_URL } from '@/lib/api';
-import { Product, Category, HeroBanner } from '@/lib/types';
+import { Product, Category, HeroBanner, HomepageSection, Shop } from '@/lib/types';
 
-const FALLBACK_BANNER_IMAGE =
-  'https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=600&q=80';
+const { width: SCREEN_W } = Dimensions.get('window');
+const CARD_W = 148;
+const FALLBACK_BANNER = 'https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=800&q=80';
+
+// ─── Fetch helpers ────────────────────────────────────────────────────────────
 
 async function fetchHeroBanners(): Promise<HeroBanner[]> {
   const res = await fetch(`${DB_BASE_URL}/hero-banners`);
@@ -23,23 +26,103 @@ async function fetchHeroBanners(): Promise<HeroBanner[]> {
   return (json.banners ?? []) as HeroBanner[];
 }
 
-function ProductGridCard({ product }: { product: Product }) {
+async function fetchHomepageSections(): Promise<HomepageSection[]> {
+  const res = await fetch(`${DB_BASE_URL}/homepage-sections`);
+  if (!res.ok) throw new Error('Failed to load sections');
+  const json = await res.json();
+  return (json.sections ?? []) as HomepageSection[];
+}
+
+// ─── Hero banner carousel ────────────────────────────────────────────────────
+
+function BannerCarousel({ banners }: { banners: HeroBanner[] }) {
+  const [active, setActive] = useState(0);
+  const ref = useRef<ScrollView>(null);
+  const list = banners.length > 0 ? banners : [{ id: 'fb', image_url: FALLBACK_BANNER }];
+
+  useEffect(() => {
+    if (list.length <= 1) return;
+    const t = setInterval(() => {
+      setActive(prev => {
+        const next = (prev + 1) % list.length;
+        ref.current?.scrollTo({ x: next * SCREEN_W, animated: true });
+        return next;
+      });
+    }, 4000);
+    return () => clearInterval(t);
+  }, [list.length]);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const onScroll = useCallback((e: any) => {
+    const idx = Math.round(e.nativeEvent.contentOffset.x / SCREEN_W);
+    setActive(idx);
+  }, []);
+
+  return (
+    <View style={styles.bannerWrap}>
+      <ScrollView
+        ref={ref}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
+      >
+        {list.map((b, i) => (
+          <View key={b.id ?? i} style={styles.bannerSlide}>
+            <Image
+              source={{ uri: b.image_url || FALLBACK_BANNER }}
+              style={styles.bannerImage}
+              contentFit="cover"
+              transition={300}
+            />
+            {(b.title || b.subtitle) && (
+              <View style={styles.bannerOverlay}>
+                {b.title && <Text style={styles.bannerTitle}>{b.title}</Text>}
+                {b.subtitle && <Text style={styles.bannerSubtitle}>{b.subtitle}</Text>}
+              </View>
+            )}
+          </View>
+        ))}
+      </ScrollView>
+      {list.length > 1 && (
+        <View style={styles.dotRow}>
+          {list.map((_, i) => (
+            <View
+              key={i}
+              style={[styles.dot, i === active && styles.dotActive]}
+            />
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
+
+// ─── Product card for section rows ──────────────────────────────────────────
+
+function SectionProductCard({ product, dark }: { product: Product; dark?: boolean }) {
   const colors = useColors();
   const { addItem, updateQuantity, getQuantity } = useCart();
 
   const image = product.image || product.images?.[0];
   const hasDiscount = product.discountedPrice != null && product.discountedPrice < product.price;
   const discountPct = hasDiscount
-    ? Math.round(((product.price - (product.discountedPrice as number)) / product.price) * 100)
+    ? Math.round(((product.price - product.discountedPrice!) / product.price) * 100)
     : 0;
-  const isNew =
-    !!product.createdAt && Date.now() - new Date(product.createdAt).getTime() < 7 * 24 * 60 * 60 * 1000;
-  const quantity = getQuantity(product._id);
-  const shopId = product.shopId || (typeof product.shop === 'string' ? product.shop : product.shop?._id) || '';
+  const qty = getQuantity(product._id);
+  const shopId =
+    product.shopId ||
+    (typeof product.shop === 'string' ? product.shop : product.shop?._id) ||
+    '';
+
+  const cardBg = dark ? 'rgba(255,255,255,0.1)' : colors.card;
+  const textColor = dark ? '#fff' : colors.foreground;
+  const mutedColor = dark ? 'rgba(255,255,255,0.6)' : colors.mutedForeground;
 
   return (
     <TouchableOpacity
-      style={[styles.pCard, { backgroundColor: colors.card }]}
+      style={[styles.pCard, { backgroundColor: cardBg }]}
       activeOpacity={0.85}
       onPress={() => router.push({ pathname: '/product/[id]', params: { id: product._id } })}
     >
@@ -47,8 +130,8 @@ function ProductGridCard({ product }: { product: Product }) {
         {image ? (
           <Image source={{ uri: image }} style={styles.pImage} contentFit="cover" transition={200} />
         ) : (
-          <View style={[styles.pImage, styles.pImagePlaceholder, { backgroundColor: colors.muted }]}>
-            <Ionicons name="image-outline" size={28} color={colors.mutedForeground} />
+          <View style={[styles.pImage, { backgroundColor: colors.muted, alignItems: 'center', justifyContent: 'center' }]}>
+            <Ionicons name="image-outline" size={22} color={colors.mutedForeground} />
           </View>
         )}
         {hasDiscount && (
@@ -56,52 +139,40 @@ function ProductGridCard({ product }: { product: Product }) {
             <Text style={styles.discountBadgeText}>{discountPct}% off</Text>
           </View>
         )}
-        {isNew && (
-          <View style={styles.newBadge}>
-            <Text style={styles.newBadgeText}>NEW</Text>
-          </View>
-        )}
       </View>
       <View style={styles.pInfo}>
-        <Text style={[styles.pName, { color: colors.foreground }]} numberOfLines={1}>
-          {product.name}
-        </Text>
-        {product.unit && (
-          <Text style={[styles.pUnit, { color: colors.mutedForeground }]}>{product.unit}</Text>
+        <Text style={[styles.pName, { color: textColor }]} numberOfLines={1}>{product.name}</Text>
+        {product.unit && <Text style={[styles.pUnit, { color: mutedColor }]}>{product.unit}</Text>}
+        {product.shopName && (
+          <Text style={[styles.pShop, { color: mutedColor }]} numberOfLines={1}>
+            {product.shopName}
+          </Text>
         )}
         <View style={styles.pBottom}>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.pPrice, { color: colors.foreground }]}>
+          <View>
+            <Text style={[styles.pPrice, { color: textColor }]}>
               ₹{hasDiscount ? product.discountedPrice : product.price}
             </Text>
             {hasDiscount && (
-              <Text style={styles.pOriginalPrice}>₹{product.price}</Text>
+              <Text style={styles.pStrike}>₹{product.price}</Text>
             )}
           </View>
-          {quantity === 0 ? (
+          {qty === 0 ? (
             <TouchableOpacity
-              style={[styles.cartBtn, { backgroundColor: colors.primary }]}
+              style={[styles.addBtn, { backgroundColor: dark ? '#F97316' : colors.primary }]}
               onPress={() => shopId && addItem(product, shopId)}
               activeOpacity={0.8}
             >
-              <Ionicons name="cart-outline" size={16} color="#fff" />
+              <Text style={styles.addBtnText}>ADD</Text>
             </TouchableOpacity>
           ) : (
-            <View style={[styles.pStepper, { borderColor: colors.primary }]}>
-              <TouchableOpacity
-                style={styles.pStepBtn}
-                onPress={() => updateQuantity(product._id, quantity - 1)}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="remove" size={14} color={colors.primary} />
+            <View style={[styles.stepper, { borderColor: dark ? '#F97316' : colors.primary }]}>
+              <TouchableOpacity style={styles.stepBtn} onPress={() => updateQuantity(product._id, qty - 1)}>
+                <Ionicons name="remove" size={12} color={dark ? '#F97316' : colors.primary} />
               </TouchableOpacity>
-              <Text style={[styles.pStepQty, { color: colors.primary }]}>{quantity}</Text>
-              <TouchableOpacity
-                style={styles.pStepBtn}
-                onPress={() => shopId && addItem(product, shopId)}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="add" size={14} color={colors.primary} />
+              <Text style={[styles.stepQty, { color: dark ? '#F97316' : colors.primary }]}>{qty}</Text>
+              <TouchableOpacity style={styles.stepBtn} onPress={() => shopId && addItem(product, shopId)}>
+                <Ionicons name="add" size={12} color={dark ? '#F97316' : colors.primary} />
               </TouchableOpacity>
             </View>
           )}
@@ -111,22 +182,185 @@ function ProductGridCard({ product }: { product: Product }) {
   );
 }
 
+// ─── Combo / Hot-Pick section (dark highlighted card) ────────────────────────
+
+function ComboSection({ section }: { section: HomepageSection }) {
+  return (
+    <View style={styles.comboWrap}>
+      <View style={styles.hotPickBadge}>
+        <Ionicons name="flame" size={11} color="#fff" />
+        <Text style={styles.hotPickText}>Hot Pick</Text>
+      </View>
+      <View style={styles.comboHeader}>
+        <Text style={styles.comboTitle}>{section.title}</Text>
+        <TouchableOpacity onPress={() => router.push('/(customer)/shops')}>
+          <Text style={styles.comboSeeAll}>See all</Text>
+        </TouchableOpacity>
+      </View>
+      <FlatList
+        data={section.products}
+        horizontal
+        keyExtractor={p => p._id}
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{ paddingHorizontal: 16, gap: 10, paddingBottom: 4 }}
+        renderItem={({ item }) => <SectionProductCard product={item} dark />}
+      />
+    </View>
+  );
+}
+
+// ─── Standard section row ────────────────────────────────────────────────────
+
+function SectionRow({ section }: { section: HomepageSection }) {
+  const colors = useColors();
+  const isTrending = section.type === 'trending';
+
+  return (
+    <View style={{ marginBottom: 4 }}>
+      <View style={styles.sectionHeader}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          {isTrending && <Ionicons name="trending-up" size={17} color={colors.accent} />}
+          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{section.title}</Text>
+        </View>
+        <TouchableOpacity onPress={() => router.push('/(customer)/shops')}>
+          <Text style={[styles.seeAll, { color: colors.accent }]}>See all</Text>
+        </TouchableOpacity>
+      </View>
+      <FlatList
+        data={section.products}
+        horizontal
+        keyExtractor={p => p._id}
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{ paddingHorizontal: 16, gap: 10, paddingBottom: 4 }}
+        renderItem={({ item }) => <SectionProductCard product={item} />}
+      />
+    </View>
+  );
+}
+
+// ─── Popular shops row ────────────────────────────────────────────────────────
+
+function PopularShopsRow() {
+  const colors = useColors();
+  const { data: shops = [] } = useQuery<Shop[]>({
+    queryKey: ['shops-popular'],
+    queryFn: async () => {
+      const res = await api.get<unknown>('/shops', false);
+      return extractList<Shop>(res, 'shops').slice(0, 12);
+    },
+    staleTime: 120_000,
+  });
+
+  if (shops.length === 0) return null;
+
+  return (
+    <View style={{ marginBottom: 4 }}>
+      <View style={styles.sectionHeader}>
+        <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Popular Shops</Text>
+        <TouchableOpacity onPress={() => router.push('/(customer)/shops')}>
+          <Text style={[styles.seeAll, { color: colors.accent }]}>See all</Text>
+        </TouchableOpacity>
+      </View>
+      <FlatList
+        data={shops}
+        horizontal
+        keyExtractor={s => s._id}
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{ paddingHorizontal: 16, gap: 12, paddingBottom: 4 }}
+        renderItem={({ item: shop }) => (
+          <TouchableOpacity
+            style={[styles.shopCard, { backgroundColor: colors.card }]}
+            activeOpacity={0.85}
+            onPress={() => router.push({ pathname: '/shop/[id]' as never, params: { id: shop._id } })}
+          >
+            {(shop.image || shop.coverImage) ? (
+              <Image
+                source={{ uri: (shop.image || shop.coverImage)! }}
+                style={styles.shopImage}
+                contentFit="cover"
+                transition={200}
+              />
+            ) : (
+              <View style={[styles.shopImage, { backgroundColor: colors.muted, alignItems: 'center', justifyContent: 'center' }]}>
+                <Ionicons name="storefront-outline" size={26} color={colors.mutedForeground} />
+              </View>
+            )}
+            <Text style={[styles.shopName, { color: colors.foreground }]} numberOfLines={1}>
+              {shop.name || shop.shopName}
+            </Text>
+            {shop.category && (
+              <Text style={[styles.shopCat, { color: colors.mutedForeground }]} numberOfLines={1}>
+                {shop.category}
+              </Text>
+            )}
+          </TouchableOpacity>
+        )}
+      />
+    </View>
+  );
+}
+
+// ─── Category icon strip ─────────────────────────────────────────────────────
+
+const CATEGORY_ICONS: Record<string, string> = {
+  grocery: '🛒', vegetables: '🥦', fruits: '🍎', bakery: '🍞',
+  dairy: '🥛', snacks: '🍿', drinks: '🥤', restaurant: '🍽️',
+  electronics: '📱', fashion: '👗', stationary: '📚', 'fast-food': '🍔',
+  'fast food': '🍔', 'ice cream': '🍦', default: '🏪',
+};
+
+function CategoryStrip({ categories }: { categories: Category[] }) {
+  const colors = useColors();
+
+  return (
+    <View style={{ marginBottom: 8 }}>
+      <View style={styles.sectionHeader}>
+        <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Shop by Category</Text>
+        <TouchableOpacity onPress={() => router.push('/(customer)/shops')}>
+          <Text style={[styles.seeAll, { color: colors.accent }]}>See all</Text>
+        </TouchableOpacity>
+      </View>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{ paddingHorizontal: 16, gap: 16, paddingBottom: 4 }}
+      >
+        {categories.map(c => {
+          const key = (c.slug ?? c.name ?? '').toLowerCase();
+          const emoji = CATEGORY_ICONS[key] ?? CATEGORY_ICONS.default;
+          return (
+            <TouchableOpacity
+              key={c._id}
+              style={styles.catItem}
+              activeOpacity={0.8}
+              onPress={() => router.push('/(customer)/shops')}
+            >
+              <View style={[styles.catCircle, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <Text style={styles.catEmoji}>{emoji}</Text>
+              </View>
+              <Text style={[styles.catLabel, { color: colors.foreground }]} numberOfLines={1}>{c.name}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+    </View>
+  );
+}
+
+// ─── Main screen ─────────────────────────────────────────────────────────────
+
 export default function HomeScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const [search, setSearch] = useState('');
-  const [category, setCategory] = useState('All');
+  const topPad = Platform.OS === 'web' ? 20 : insets.top;
+  const [refreshing, setRefreshing] = useState(false);
 
-  // Hero banner is fetched live from our Neon database, the same one the
-  // website's admin panel writes to — so updating the banner image on the
-  // website updates it here too, without an app release.
   const { data: banners = [] } = useQuery<HeroBanner[]>({
     queryKey: ['hero-banners'],
     queryFn: fetchHeroBanners,
     staleTime: 60_000,
     refetchInterval: 60_000,
   });
-  const banner = banners[0];
 
   const { data: categories = [] } = useQuery<Category[]>({
     queryKey: ['categories'],
@@ -134,145 +368,113 @@ export default function HomeScreen() {
       const res = await api.get<unknown>('/categories', false);
       return extractList<Category>(res, 'categories');
     },
+    staleTime: 120_000,
   });
 
-  const { data: products = [], isLoading, refetch, isRefetching } = useQuery<Product[]>({
-    queryKey: ['products'],
-    queryFn: async () => {
-      const res = await api.get<unknown>('/products', false);
-      return extractList<Product>(res, 'products');
-    },
+  const {
+    data: sections = [],
+    isLoading: sectionsLoading,
+    refetch: refetchSections,
+  } = useQuery<HomepageSection[]>({
+    queryKey: ['homepage-sections'],
+    queryFn: fetchHomepageSections,
+    staleTime: 60_000,
+    refetchInterval: 120_000,
   });
 
-  const filtered = products.filter(p => {
-    const matchSearch = (p.name ?? '').toLowerCase().includes(search.toLowerCase());
-    const matchCat = category === 'All' || p.category?.toLowerCase() === category.toLowerCase();
-    return matchSearch && matchCat;
-  });
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await refetchSections();
+    setRefreshing(false);
+  }, [refetchSections]);
 
-  const topPad = Platform.OS === 'web' ? 20 : insets.top;
+  // Detect "combo/saver" sections for special hot-pick styling
+  const isComboSection = (s: HomepageSection) => {
+    const t = s.title.toLowerCase();
+    return t.includes('combo') || t.includes('saver') || t.includes('hot pick');
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <FlatList
-        data={filtered}
-        keyExtractor={p => p._id}
-        numColumns={2}
+      <ScrollView
         showsVerticalScrollIndicator={false}
-        columnWrapperStyle={styles.row}
-        renderItem={({ item }) => <ProductGridCard product={item} />}
-        ListHeaderComponent={
-          <View style={{ paddingTop: topPad }}>
-            {/* Search bar */}
-            <View style={styles.headerRow}>
-              <View style={[styles.searchBar, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <Ionicons name="search-outline" size={18} color={colors.mutedForeground} />
-                <TextInput
-                  style={[styles.searchInput, { color: colors.foreground }]}
-                  placeholder="Search your products here…"
-                  placeholderTextColor={colors.mutedForeground}
-                  value={search}
-                  onChangeText={setSearch}
-                  onFocus={() => router.push('/search')}
-                />
-              </View>
-              <TouchableOpacity
-                style={[styles.notifBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
-                onPress={() => router.push('/notifications')}
-              >
-                <Ionicons name="notifications-outline" size={20} color={colors.foreground} />
-                <View style={styles.notifDot} />
-              </TouchableOpacity>
-            </View>
-
-            {/* Promo banner — the whole card is the website's hero banner image */}
-            <TouchableOpacity
-              activeOpacity={banner?.redirect_type ? 0.9 : 1}
-              style={styles.banner}
-              onPress={() => {
-                if (banner?.redirect_type === 'internal' && banner.redirect_value) {
-                  // best-effort internal navigation; falls back silently if route unknown
-                }
-              }}
-            >
-              <Image
-                source={{ uri: banner?.image_url || FALLBACK_BANNER_IMAGE }}
-                style={styles.bannerImage}
-                contentFit="cover"
+        contentContainerStyle={{ paddingBottom: 100 + insets.bottom }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
+        }
+      >
+        {/* Top padding + search */}
+        <View style={{ paddingTop: topPad }}>
+          <View style={styles.headerRow}>
+            <View style={[styles.searchBar, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <Ionicons name="search-outline" size={18} color={colors.mutedForeground} />
+              <TextInput
+                style={[styles.searchInput, { color: colors.foreground }]}
+                placeholder="Search your products here…"
+                placeholderTextColor={colors.mutedForeground}
+                editable={false}
+                onFocus={() => router.push('/search')}
               />
-            </TouchableOpacity>
-
-            {/* Category header */}
-            <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Category</Text>
-              <TouchableOpacity onPress={() => router.push('/(customer)/shops')}>
-                <Text style={[styles.seeAll, { color: colors.accent }]}>See all</Text>
-              </TouchableOpacity>
             </View>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.catList}
+            <TouchableOpacity
+              style={[styles.notifBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+              onPress={() => router.push('/notifications')}
             >
-              <TouchableOpacity
-                style={[
-                  styles.catChip,
-                  { backgroundColor: category === 'All' ? colors.accent : colors.card, borderColor: category === 'All' ? colors.accent : colors.border },
-                ]}
-                onPress={() => setCategory('All')}
-              >
-                <Text style={[styles.catText, { color: category === 'All' ? '#fff' : colors.foreground }]}>All</Text>
-              </TouchableOpacity>
-              {categories.map(c => {
-                const active = category.toLowerCase() === (c.slug ?? '').toLowerCase() || category.toLowerCase() === (c.name ?? '').toLowerCase();
-                return (
-                  <TouchableOpacity
-                    key={c._id}
-                    style={[
-                      styles.catChip,
-                      { backgroundColor: active ? colors.accent : colors.card, borderColor: active ? colors.accent : colors.border },
-                    ]}
-                    onPress={() => setCategory(c.slug || c.name)}
-                  >
-                    {c.emoji && <Text style={styles.catEmoji}>{c.emoji}</Text>}
-                    <Text style={[styles.catText, { color: active ? '#fff' : colors.foreground }]}>{c.name}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-
-            {/* Trending header */}
-            <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Trending Near You</Text>
-              <TouchableOpacity onPress={() => router.push('/(customer)/shops')}>
-                <Text style={[styles.seeAll, { color: colors.accent }]}>See all</Text>
-              </TouchableOpacity>
-            </View>
+              <Ionicons name="notifications-outline" size={20} color={colors.foreground} />
+              <View style={styles.notifDot} />
+            </TouchableOpacity>
           </View>
-        }
-        contentContainerStyle={[styles.list, { paddingBottom: 90 + insets.bottom }]}
-        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.accent} />}
-        ListEmptyComponent={
-          isLoading ? (
-            <ActivityIndicator size="large" color={colors.accent} style={{ marginTop: 40 }} />
-          ) : (
-            <View style={styles.empty}>
-              <Ionicons name="cart-outline" size={48} color={colors.mutedForeground} />
-              <Text style={[styles.emptyTitle, { color: colors.foreground }]}>No products found</Text>
-              <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
-                {search ? 'Try a different search' : 'No products available yet'}
-              </Text>
-            </View>
-          )
-        }
-      />
+        </View>
+
+        {/* Hero banner carousel */}
+        <BannerCarousel banners={banners} />
+
+        {/* Sections */}
+        {sectionsLoading ? (
+          <ActivityIndicator size="large" color={colors.accent} style={{ marginTop: 40 }} />
+        ) : (
+          <>
+            {/* Render sections in order — combo sections get special dark card */}
+            {sections.map(section => {
+              if (section.products.length === 0) return null;
+              if (isComboSection(section)) {
+                return <ComboSection key={section._id} section={section} />;
+              }
+              return <SectionRow key={section._id} section={section} />;
+            })}
+
+            {/* Inject category strip + popular shops after first section */}
+            {sections.length > 0 && (
+              <>
+                <CategoryStrip categories={categories} />
+                <PopularShopsRow />
+              </>
+            )}
+
+            {/* If no sections loaded at all, still show categories + shops */}
+            {sections.length === 0 && (
+              <>
+                <CategoryStrip categories={categories} />
+                <PopularShopsRow />
+              </>
+            )}
+          </>
+        )}
+      </ScrollView>
     </View>
   );
 }
 
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  headerRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16 },
+
+  // Header
+  headerRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingHorizontal: 16, marginBottom: 14,
+  },
   searchBar: {
     flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8,
     borderRadius: 24, paddingHorizontal: 16, paddingVertical: 12, borderWidth: 1,
@@ -286,60 +488,98 @@ const styles = StyleSheet.create({
     position: 'absolute', top: 10, right: 11, width: 8, height: 8,
     borderRadius: 4, backgroundColor: '#F97316',
   },
-  banner: {
-    borderRadius: 18, marginHorizontal: 16, marginTop: 18,
-    overflow: 'hidden', aspectRatio: 16 / 9,
-  },
+
+  // Banner
+  bannerWrap: { marginHorizontal: 16, marginBottom: 22, borderRadius: 18, overflow: 'hidden' },
+  bannerSlide: { width: SCREEN_W - 32, aspectRatio: 16 / 7, position: 'relative' },
   bannerImage: { width: '100%', height: '100%' },
+  bannerOverlay: {
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    padding: 14, backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  bannerTitle: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  bannerSubtitle: { color: 'rgba(255,255,255,0.8)', fontSize: 12, marginTop: 2 },
+  dotRow: {
+    position: 'absolute', bottom: 8, left: 0, right: 0,
+    flexDirection: 'row', justifyContent: 'center', gap: 6,
+  },
+  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.45)' },
+  dotActive: { backgroundColor: '#fff', width: 18 },
+
+  // Section headers
   sectionHeader: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    marginHorizontal: 16, marginTop: 22, marginBottom: 10,
+    paddingHorizontal: 16, marginBottom: 12, marginTop: 20,
   },
   sectionTitle: { fontSize: 17, fontWeight: '700' },
   seeAll: { fontSize: 13, fontWeight: '600' },
-  catList: { paddingHorizontal: 16, gap: 10, paddingBottom: 4 },
-  catChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    paddingHorizontal: 14, paddingVertical: 9, borderRadius: 20, borderWidth: 1,
+
+  // Category strip
+  catItem: { alignItems: 'center', width: 68 },
+  catCircle: {
+    width: 56, height: 56, borderRadius: 28, borderWidth: 1,
+    alignItems: 'center', justifyContent: 'center', marginBottom: 6,
   },
-  catEmoji: { fontSize: 14 },
-  catText: { fontSize: 13, fontWeight: '600' },
-  row: { paddingHorizontal: 12, gap: 4 },
-  list: { paddingBottom: 20 },
+  catEmoji: { fontSize: 24 },
+  catLabel: { fontSize: 11, fontWeight: '500', textAlign: 'center' },
+
+  // Product card
   pCard: {
-    flex: 1, margin: 4, borderRadius: 16, overflow: 'hidden',
+    width: CARD_W, borderRadius: 14, overflow: 'hidden',
     elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06, shadowRadius: 6,
+    shadowOpacity: 0.07, shadowRadius: 4,
   },
   pImageWrap: { position: 'relative' },
-  pImage: { width: '100%', height: 130 },
-  pImagePlaceholder: { alignItems: 'center', justifyContent: 'center' },
+  pImage: { width: CARD_W, height: 120 },
   discountBadge: {
-    position: 'absolute', top: 8, left: 8, backgroundColor: '#F97316',
-    borderRadius: 8, paddingHorizontal: 7, paddingVertical: 3,
+    position: 'absolute', top: 6, left: 6, backgroundColor: '#F97316',
+    borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2,
   },
-  discountBadgeText: { color: '#fff', fontSize: 10, fontWeight: '700' },
-  newBadge: {
-    position: 'absolute', top: 8, right: 8, backgroundColor: '#16A34A',
-    borderRadius: 8, paddingHorizontal: 7, paddingVertical: 3,
-  },
-  newBadgeText: { color: '#fff', fontSize: 10, fontWeight: '700' },
-  pInfo: { padding: 10 },
-  pName: { fontSize: 14, fontWeight: '700' },
-  pUnit: { fontSize: 12, marginTop: 2 },
-  pBottom: { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
-  pPrice: { fontSize: 15, fontWeight: '800' },
-  pOriginalPrice: { fontSize: 12, color: '#9CA3AF', textDecorationLine: 'line-through', marginTop: 1 },
-  cartBtn: {
-    width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center',
-  },
-  pStepper: {
+  discountBadgeText: { color: '#fff', fontSize: 9, fontWeight: '700' },
+  pInfo: { padding: 9 },
+  pName: { fontSize: 13, fontWeight: '700' },
+  pUnit: { fontSize: 11, marginTop: 1 },
+  pShop: { fontSize: 11, marginTop: 2 },
+  pBottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 },
+  pPrice: { fontSize: 14, fontWeight: '800' },
+  pStrike: { fontSize: 10, color: '#9CA3AF', textDecorationLine: 'line-through', marginTop: 1 },
+  addBtn: { borderRadius: 7, paddingHorizontal: 10, paddingVertical: 5 },
+  addBtnText: { color: '#fff', fontSize: 11, fontWeight: '700' },
+  stepper: {
     flexDirection: 'row', alignItems: 'center',
-    borderWidth: 1.5, borderRadius: 8, overflow: 'hidden',
+    borderWidth: 1.5, borderRadius: 7, overflow: 'hidden',
   },
-  pStepBtn: { paddingHorizontal: 7, paddingVertical: 5 },
-  pStepQty: { fontSize: 13, fontWeight: '700', minWidth: 18, textAlign: 'center' },
-  empty: { alignItems: 'center', paddingTop: 60, gap: 8 },
-  emptyTitle: { fontSize: 18, fontWeight: '600' },
-  emptyText: { fontSize: 14 },
+  stepBtn: { paddingHorizontal: 6, paddingVertical: 4 },
+  stepQty: { fontSize: 12, fontWeight: '700', minWidth: 16, textAlign: 'center' },
+
+  // Combo / Hot Pick
+  comboWrap: {
+    marginHorizontal: 16, marginTop: 20, marginBottom: 4,
+    borderRadius: 18, overflow: 'hidden',
+    backgroundColor: '#1C0A00',
+    paddingTop: 14, paddingBottom: 16,
+  },
+  hotPickBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    marginHorizontal: 16, marginBottom: 8, alignSelf: 'flex-start',
+    backgroundColor: '#F97316', borderRadius: 20,
+    paddingHorizontal: 10, paddingVertical: 4,
+  },
+  hotPickText: { color: '#fff', fontSize: 11, fontWeight: '700' },
+  comboHeader: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 16, marginBottom: 12,
+  },
+  comboTitle: { color: '#fff', fontSize: 17, fontWeight: '700' },
+  comboSeeAll: { color: '#FBBF24', fontSize: 13, fontWeight: '600' },
+
+  // Shops
+  shopCard: {
+    width: 100, borderRadius: 14, overflow: 'hidden',
+    elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.07, shadowRadius: 4,
+  },
+  shopImage: { width: 100, height: 80 },
+  shopName: { fontSize: 12, fontWeight: '600', padding: 8, paddingBottom: 2 },
+  shopCat: { fontSize: 10, paddingHorizontal: 8, paddingBottom: 8 },
 });

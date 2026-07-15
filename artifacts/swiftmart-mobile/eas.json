@@ -14,11 +14,17 @@
       "node": "20.18.1",
       "android": {
         "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_SERVER_URL": "https://REPLACE_WITH_YOUR_DEPLOYED_API_SERVER/api"
       }
     },
     "production": {
       "autoIncrement": true,
-      "node": "20.18.1"
+      "node": "20.18.1",
+      "env": {
+        "EXPO_PUBLIC_API_SERVER_URL": "https://REPLACE_WITH_YOUR_DEPLOYED_API_SERVER/api"
+      }
     }
   },
   "submit": {

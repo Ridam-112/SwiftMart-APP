@@ -193,7 +193,7 @@ function ComboSection({ section }: { section: HomepageSection }) {
       </View>
       <View style={styles.comboHeader}>
         <Text style={styles.comboTitle}>{section.title}</Text>
-        <TouchableOpacity onPress={() => router.push('/(customer)/shops')}>
+        <TouchableOpacity onPress={() => router.push({ pathname: '/section/[id]', params: { id: section.id ?? section._id, title: section.title } } as never)}>
           <Text style={styles.comboSeeAll}>See all</Text>
         </TouchableOpacity>
       </View>
@@ -222,7 +222,7 @@ function SectionRow({ section }: { section: HomepageSection }) {
           {isTrending && <Ionicons name="trending-up" size={17} color={colors.accent} />}
           <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{section.title}</Text>
         </View>
-        <TouchableOpacity onPress={() => router.push('/(customer)/shops')}>
+        <TouchableOpacity onPress={() => router.push({ pathname: '/section/[id]', params: { id: section.id ?? section._id, title: section.title } } as never)}>
           <Text style={[styles.seeAll, { color: colors.accent }]}>See all</Text>
         </TouchableOpacity>
       </View>

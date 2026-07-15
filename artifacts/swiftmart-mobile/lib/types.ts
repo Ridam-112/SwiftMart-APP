@@ -85,7 +85,7 @@ export interface HomepageSection {
   _id: string;
   id: string;
   title: string;
-  type: 'trending' | 'category' | 'manual' | 'new_arrivals';
+  type: 'trending' | 'category' | 'manual' | 'new_arrivals' | 'discounted';
   enabled: boolean;
   sortOrder: number;
   config: {

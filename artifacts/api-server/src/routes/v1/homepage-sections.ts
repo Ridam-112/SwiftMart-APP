@@ -70,6 +70,18 @@ async function resolveProducts(
     return { rows: await enrichWithShopNames(miArr(rows)), total: total ?? 0 };
   }
 
+  if (type === "discounted") {
+    // Products that have a discounted_price strictly less than the regular price
+    const discBase = and(base, sql`discounted_price IS NOT NULL AND discounted_price < price`);
+    const rows = await db.select().from(products)
+      .where(discBase)
+      .orderBy(sql`ROUND(((price - discounted_price) / price::numeric) * 100) DESC`)
+      .limit(lm).offset(offset);
+    const [{ total }] = await db.select({ total: sql<number>`count(*)::int` })
+      .from(products).where(discBase);
+    return { rows: await enrichWithShopNames(miArr(rows)), total: total ?? 0 };
+  }
+
   // fallback: all active products by rating
   const rows = await db.select().from(products)
     .where(base)

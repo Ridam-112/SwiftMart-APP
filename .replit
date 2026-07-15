@@ -24,6 +24,7 @@ timeoutMs = 20000
 [userenv.shared]
 EXPO_PUBLIC_GOOGLE_CLIENT_ID = "556854517102-ueq0udfe68n3es3i6hquc1hu6lefgtuc.apps.googleusercontent.com"
 GOOGLE_CLIENT_ID = "556854517102-ueq0udfe68n3es3i6hquc1hu6lefgtuc.apps.googleusercontent.com"
+VAPID_PUBLIC_KEY = "BEZjdv1oiRmhOwJB_gwkTHAhE8Qlm4TuSdT0UwTj_zqH0B4BvfCtIJTEOTMGBE3DtiXBMeR9H0uorkFYi6C0ZH8"
 
 [nix]
 channel = "stable-25_05"
